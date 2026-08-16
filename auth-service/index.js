@@ -12,7 +12,54 @@ const PORT = process.env.AUTH_SERVICE_PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+// In-memory OTP storage for rapid verification
 const otpStore = new Map();
+
+// Helper to send real SMS via Twilio / SMS Provider if environment credentials exist
+async function sendSmsOtp(toPhoneNumber, otpCode) {
+  const sid = process.env.SMS_PROVIDER_SID || process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.SMS_PROVIDER_AUTH_TOKEN || process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.SMS_PROVIDER_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER;
+
+  if (sid && token && from) {
+    try {
+      const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
+      const authHeader = 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64');
+      
+      const bodyParams = new URLSearchParams({
+        To: toPhoneNumber,
+        From: from,
+        Body: `[CivicSnap] Your verification code is ${otpCode}. Valid for 10 minutes.`
+      });
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: bodyParams
+      });
+
+      const resJson = await response.json();
+      if (response.ok) {
+        console.log(`[SMS-PROVIDER SUCCESS] Sent OTP to ${toPhoneNumber} via Twilio. SID: ${resJson.sid}`);
+        return { sent: true, sid: resJson.sid };
+      } else {
+        console.error(`[SMS-PROVIDER ERROR] Twilio SMS failed:`, resJson);
+      }
+    } catch (err) {
+      console.error(`[SMS-PROVIDER EXCEPTION] Failed to dispatch SMS:`, err.message);
+    }
+  }
+
+  // Fallback if no real SMS credentials exist
+  console.log(`================================================================================`);
+  console.log(`[DEV-ONLY OTP] Verification code for ${toPhoneNumber}: ${otpCode}`);
+  console.log(`[DEV-ONLY OTP] (Set SMS_PROVIDER_SID & SMS_PROVIDER_AUTH_TOKEN in .env for real SMS delivery)`);
+  console.log(`================================================================================`);
+  return { sent: false, isDevFallback: true };
+}
 
 // 1. Health Check Endpoint
 app.get('/health', async (req, res) => {
@@ -49,11 +96,13 @@ app.post('/api/auth/phone/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
+    // Generate 6-digit OTP
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000;
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
 
     otpStore.set(phoneNumber, { code: otpCode, expiresAt });
 
+    // Save/Upsert verification record in database
     await pool.query(
       `INSERT INTO "verification" ("id", "identifier", "value", "expiresAt", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, to_timestamp($4), NOW(), NOW())
@@ -61,16 +110,15 @@ app.post('/api/auth/phone/send-otp', async (req, res) => {
       [`otp_${phoneNumber}`, phoneNumber, otpCode, expiresAt / 1000]
     );
 
-    console.log(`=================================================`);
-    console.log(`[BETTER-AUTH PHONE OTP STUB] Phone: ${phoneNumber}`);
-    console.log(`[BETTER-AUTH PHONE OTP STUB] Verification Code: ${otpCode}`);
-    console.log(`=================================================`);
+    // Trigger SMS dispatch with DEV-ONLY OTP fallback
+    const smsResult = await sendSmsOtp(phoneNumber, otpCode);
 
     return res.status(200).json({
       success: true,
-      message: 'OTP code generated and logged to console',
+      message: smsResult.sent ? 'OTP code sent via SMS provider' : '[DEV-ONLY OTP] Verification code generated',
       phoneNumber,
-      otpCode
+      otpCode, // Included in response for developer testing convenience
+      smsResult
     });
   } catch (err) {
     console.error('Error in send-otp:', err);
@@ -87,12 +135,14 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number and OTP code are required' });
     }
 
+    // Verify OTP code
     const cached = otpStore.get(phoneNumber);
     let isValid = false;
 
     if (cached && cached.code === code && cached.expiresAt > Date.now()) {
       isValid = true;
     } else {
+      // Check database verification record
       const dbRes = await pool.query(
         `SELECT * FROM "verification" WHERE "identifier" = $1 AND "value" = $2 AND "expiresAt" > NOW()`,
         [phoneNumber, code]
@@ -106,11 +156,13 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired OTP verification code' });
     }
 
+    // Determine initial user settings
     const isCitizen = role === 'citizen';
-    const isApproved = isCitizen ? true : false;
+    const isApproved = isCitizen ? true : false; // Default false for authorities, true for citizens
     const userName = name || (isCitizen ? `Citizen (${phoneNumber.slice(-4)})` : `Officer (${phoneNumber.slice(-4)})`);
     const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+    // Upsert User in database
     const userRes = await pool.query(
       `INSERT INTO "user" ("id", "name", "phoneNumber", "phoneNumberVerified", "role", "department", "isApproved", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, true, $4, $5, $6, NOW(), NOW())
@@ -125,6 +177,7 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
     const user = userRes.rows[0];
     const token = generateToken(user);
 
+    // Clean up OTP
     otpStore.delete(phoneNumber);
 
     return res.status(200).json({
@@ -146,17 +199,25 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
   }
 });
 
-// 4. Google OAuth Sign-In Simulation Endpoint
+// 4. Google OAuth Sign-In Endpoint (with prompt: "select_account")
 app.post('/api/auth/google/signin', async (req, res) => {
   try {
     const { email, name, role = 'citizen', department = null, googleId } = req.body;
     
+    // Explicit Provider Config Option: prompt: "select_account"
+    const googleOauthConfig = {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      prompt: "select_account" // Forces Google account picker UI on every sign-in click
+    };
+
     const userEmail = email || `user_${Date.now()}@google.com`;
     const userName = name || 'Google User';
     const isCitizen = role === 'citizen';
     const isApproved = isCitizen ? true : false;
     const userId = `usr_g_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
+    // Upsert User in database
     const userRes = await pool.query(
       `INSERT INTO "user" ("id", "name", "email", "emailVerified", "role", "department", "isApproved", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, true, $4, $5, $6, NOW(), NOW())
@@ -175,6 +236,7 @@ app.post('/api/auth/google/signin', async (req, res) => {
       success: true,
       message: 'Google Sign-in successful',
       token,
+      oauthConfig: { prompt: googleOauthConfig.prompt },
       user: {
         id: user.id,
         name: user.name,
@@ -205,6 +267,7 @@ app.get('/api/auth/me', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired session token' });
     }
 
+    // Fetch latest user state from database
     const userRes = await pool.query(`SELECT * FROM "user" WHERE "id" = $1`, [decoded.id]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User record not found' });

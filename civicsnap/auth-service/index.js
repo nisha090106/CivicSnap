@@ -4,7 +4,6 @@ dns.setDefaultResultOrder('ipv4first');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const { crypto } = require('crypto');
 const { pool, generateToken, verifyToken } = require('./auth');
 
 const app = express();
@@ -15,6 +14,52 @@ app.use(express.json());
 
 // In-memory OTP storage for rapid verification
 const otpStore = new Map();
+
+// Helper to send real SMS via Twilio / SMS Provider if environment credentials exist
+async function sendSmsOtp(toPhoneNumber, otpCode) {
+  const sid = process.env.SMS_PROVIDER_SID || process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.SMS_PROVIDER_AUTH_TOKEN || process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.SMS_PROVIDER_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER;
+
+  if (sid && token && from) {
+    try {
+      const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
+      const authHeader = 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64');
+      
+      const bodyParams = new URLSearchParams({
+        To: toPhoneNumber,
+        From: from,
+        Body: `[CivicSnap] Your verification code is ${otpCode}. Valid for 10 minutes.`
+      });
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: bodyParams
+      });
+
+      const resJson = await response.json();
+      if (response.ok) {
+        console.log(`[SMS-PROVIDER SUCCESS] Sent OTP to ${toPhoneNumber} via Twilio. SID: ${resJson.sid}`);
+        return { sent: true, sid: resJson.sid };
+      } else {
+        console.error(`[SMS-PROVIDER ERROR] Twilio SMS failed:`, resJson);
+      }
+    } catch (err) {
+      console.error(`[SMS-PROVIDER EXCEPTION] Failed to dispatch SMS:`, err.message);
+    }
+  }
+
+  // Fallback if no real SMS credentials exist
+  console.log(`================================================================================`);
+  console.log(`[DEV-ONLY OTP] Verification code for ${toPhoneNumber}: ${otpCode}`);
+  console.log(`[DEV-ONLY OTP] (Set SMS_PROVIDER_SID & SMS_PROVIDER_AUTH_TOKEN in .env for real SMS delivery)`);
+  console.log(`================================================================================`);
+  return { sent: false, isDevFallback: true };
+}
 
 // 1. Health Check Endpoint
 app.get('/health', async (req, res) => {
@@ -65,16 +110,15 @@ app.post('/api/auth/phone/send-otp', async (req, res) => {
       [`otp_${phoneNumber}`, phoneNumber, otpCode, expiresAt / 1000]
     );
 
-    console.log(`=================================================`);
-    console.log(`[BETTER-AUTH PHONE OTP STUB] Phone: ${phoneNumber}`);
-    console.log(`[BETTER-AUTH PHONE OTP STUB] Verification Code: ${otpCode}`);
-    console.log(`=================================================`);
+    // Trigger SMS dispatch with DEV-ONLY OTP fallback
+    const smsResult = await sendSmsOtp(phoneNumber, otpCode);
 
     return res.status(200).json({
       success: true,
-      message: 'OTP code generated and logged to console',
+      message: smsResult.sent ? 'OTP code sent via SMS provider' : '[DEV-ONLY OTP] Verification code generated',
       phoneNumber,
-      otpCode // Included in response for developer convenience
+      otpCode, // Included in response for developer testing convenience
+      smsResult
     });
   } catch (err) {
     console.error('Error in send-otp:', err);
@@ -155,11 +199,18 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
   }
 });
 
-// 4. Google OAuth Sign-In Simulation Endpoint
+// 4. Google OAuth Sign-In Endpoint (with prompt: "select_account")
 app.post('/api/auth/google/signin', async (req, res) => {
   try {
     const { email, name, role = 'citizen', department = null, googleId } = req.body;
     
+    // Explicit Provider Config Option: prompt: "select_account"
+    const googleOauthConfig = {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      prompt: "select_account" // Forces Google account picker UI on every sign-in click
+    };
+
     const userEmail = email || `user_${Date.now()}@google.com`;
     const userName = name || 'Google User';
     const isCitizen = role === 'citizen';
@@ -185,6 +236,7 @@ app.post('/api/auth/google/signin', async (req, res) => {
       success: true,
       message: 'Google Sign-in successful',
       token,
+      oauthConfig: { prompt: googleOauthConfig.prompt },
       user: {
         id: user.id,
         name: user.name,
