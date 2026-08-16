@@ -1,9 +1,12 @@
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 
-// Load environment variables from ../.env as well as .env
+// Load environment variables
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config();
 
