@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck } from 'lucide-react';
 
 const DEPARTMENTS = [
@@ -124,12 +125,16 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse.credential) {
+      setError('Google Sign-In failed: No credential token received');
+      return;
+    }
     setLoading(true);
+    setError('');
     try {
       const res = await googleSignIn({
-        email: `user_${Math.floor(Math.random() * 10000)}@gmail.com`,
-        name: role === 'citizen' ? 'Google Citizen' : 'Google Officer',
+        idToken: credentialResponse.credential,
         role,
         department: role === 'authority' ? department : null
       });
@@ -143,6 +148,8 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
         } else {
           navigate('/dashboard/pending-approval');
         }
+      } else {
+        setError(res.error || 'Google Authentication failed');
       }
     } catch (err) {
       setError('Google Sign-in failed');
@@ -246,20 +253,16 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
         </div>
 
         {/* Google OAuth Button */}
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full py-3.5 px-4 bg-white border border-emerald-200 hover:bg-emerald-50 text-slate-800 font-bold text-xs rounded-2xl transition shadow-sm flex items-center justify-center gap-3"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.29v3.14C3.26 21.3 7.31 24 12 24z"/>
-            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.59H1.29C.47 8.23 0 10.06 0 12s.47 3.77 1.29 5.41l3.99-3.14z"/>
-            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l3.99 3.14c.95-2.83 3.6-4.98 6.72-4.98z"/>
-          </svg>
-          Continue with Google
-        </button>
+        <div className="flex justify-center w-full min-h-[44px]">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Sign-In was cancelled or failed')}
+            size="large"
+            width="320"
+            text="continue_with"
+            shape="pill"
+          />
+        </div>
 
         <div className="relative my-4 flex items-center justify-center">
           <div className="border-t border-emerald-100 w-full"></div>

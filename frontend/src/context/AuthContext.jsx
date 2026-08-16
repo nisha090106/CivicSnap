@@ -59,11 +59,11 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const googleSignIn = async ({ email, name, role, department }) => {
+  const googleSignIn = async ({ idToken, role, department }) => {
     const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/google/signin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, role, department })
+      body: JSON.stringify({ id_token: idToken, role, department })
     });
     const data = await res.json();
     if (data.success && data.token) {

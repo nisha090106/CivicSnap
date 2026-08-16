@@ -5,6 +5,7 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { pool, generateToken, verifyToken } = require('./auth');
+const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 const PORT = process.env.AUTH_SERVICE_PORT || 4000;
@@ -199,30 +200,50 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
   }
 });
 
-// 4. Google OAuth Sign-In Endpoint (with prompt: "select_account")
+// 4. Google OAuth Sign-In Endpoint (with prompt: "select_account" & real id_token verification)
 app.post('/api/auth/google/signin', async (req, res) => {
   try {
-    const { email, name, role = 'citizen', department = null, googleId } = req.body;
-    
-    // Explicit Provider Config Option: prompt: "select_account"
-    const googleOauthConfig = {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      prompt: "select_account" // Forces Google account picker UI on every sign-in click
-    };
+    const { id_token, idToken, role = 'citizen', department = null } = req.body;
+    const tokenToVerify = id_token || idToken;
 
-    const userEmail = email || `user_${Date.now()}@google.com`;
-    const userName = name || 'Google User';
+    if (!tokenToVerify) {
+      return res.status(400).json({ error: 'Google id_token is required' });
+    }
+    
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    const client = new OAuth2Client(googleClientId);
+    
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: tokenToVerify,
+        audience: googleClientId,
+      });
+      payload = ticket.getPayload();
+    } catch (verifyErr) {
+      console.error('[GOOGLE-AUTH-ERROR] id_token verification failed:', verifyErr.message);
+      return res.status(401).json({ error: 'Google authentication failed: Invalid or expired id_token', details: verifyErr.message });
+    }
+
+    const userEmail = payload.email;
+    const userName = payload.name || payload.email.split('@')[0];
+    const googleId = payload.sub;
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'Google account has no verified email address' });
+    }
+
     const isCitizen = role === 'citizen';
     const isApproved = isCitizen ? true : false;
     const userId = `usr_g_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // Upsert User in database
+    // Upsert User in database with real verified email & name
     const userRes = await pool.query(
       `INSERT INTO "user" ("id", "name", "email", "emailVerified", "role", "department", "isApproved", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, true, $4, $5, $6, NOW(), NOW())
        ON CONFLICT ("email") DO UPDATE 
-       SET "role" = EXCLUDED."role",
+       SET "name" = EXCLUDED."name",
+           "role" = EXCLUDED."role",
            "department" = COALESCE(EXCLUDED."department", "user"."department"),
            "updatedAt" = NOW()
        RETURNING *`,
@@ -236,7 +257,7 @@ app.post('/api/auth/google/signin', async (req, res) => {
       success: true,
       message: 'Google Sign-in successful',
       token,
-      oauthConfig: { prompt: googleOauthConfig.prompt },
+      oauthConfig: { prompt: "select_account" },
       user: {
         id: user.id,
         name: user.name,

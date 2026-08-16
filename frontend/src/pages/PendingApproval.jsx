@@ -25,48 +25,48 @@ export default function PendingApproval() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-6 md:p-12">
+    <div className="min-h-screen bg-emerald-50/40 text-slate-900 flex flex-col justify-between p-6 md:p-12 font-sans selection:bg-emerald-200">
       <div className="max-w-xl mx-auto w-full my-auto">
-        <div className="glass-card rounded-3xl p-8 border border-amber-500/30 text-center space-y-6 shadow-2xl relative overflow-hidden">
+        <div className="bg-white rounded-3xl p-8 border border-emerald-200 text-center space-y-6 shadow-2xl relative overflow-hidden">
           
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-lg shadow-amber-500/10">
-            <Clock className="w-8 h-8 animate-pulse" />
+          <div className="w-16 h-16 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 mx-auto shadow-md">
+            <Clock className="w-8 h-8 animate-pulse text-amber-800" />
           </div>
 
           <div className="space-y-2">
-            <span className="px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-full">
+            <span className="px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-full">
               Account Pending Review
             </span>
-            <h1 className="text-2xl font-extrabold text-white">Authority Verification Required</h1>
-            <p className="text-slate-400 text-sm max-w-md mx-auto">
-              Your official authority account for <strong className="text-amber-300 font-semibold">{user?.department || 'Municipal Department'}</strong> has been registered and is awaiting administrator verification.
+            <h1 className="text-2xl font-extrabold text-emerald-950">Authority Verification Required</h1>
+            <p className="text-slate-600 text-sm max-w-md mx-auto font-medium">
+              Your official authority account for <strong className="text-emerald-950 font-bold">{user?.department || 'Municipal Department'}</strong> has been registered and is awaiting administrator verification.
             </p>
           </div>
 
-          <div className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs text-slate-400 text-left space-y-1 font-mono">
-            <div><span className="text-slate-500">Official ID:</span> {user?.id}</div>
-            <div><span className="text-slate-500">Department:</span> {user?.department || 'Not specified'}</div>
-            <div><span className="text-slate-500">Approval Status:</span> <span className="text-amber-400 font-semibold">false (Pending)</span></div>
+          <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200 text-xs text-slate-700 text-left space-y-1 font-mono">
+            <div><span className="text-emerald-900 font-bold">Official ID:</span> {user?.id}</div>
+            <div><span className="text-emerald-900 font-bold">Department:</span> {user?.department || 'Not specified'}</div>
+            <div><span className="text-emerald-900 font-bold">Approval Status:</span> <span className="text-amber-700 font-bold">Pending Review</span></div>
           </div>
 
           {/* Dev Helper Quick-Approval Button */}
-          <div className="pt-4 border-t border-slate-800 space-y-3">
+          <div className="pt-4 border-t border-emerald-100 space-y-3">
             <button
               onClick={handleDevApprove}
               disabled={loading}
-              className="w-full py-3.5 px-6 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm rounded-2xl transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3.5 px-6 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-sm rounded-2xl transition shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
-              <Sparkles className="w-4 h-4 text-slate-950" />
+              <Sparkles className="w-4 h-4 text-white" />
               {loading ? 'Approving Account...' : 'Dev Quick-Approve Authority Account'}
             </button>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 font-medium">
               (Developer helper: Click above to test approved authority flow)
             </p>
           </div>
 
           <button
             onClick={logout}
-            className="text-xs text-slate-500 hover:text-slate-300 transition flex items-center gap-1 mx-auto pt-2"
+            className="text-xs text-emerald-800 hover:text-emerald-950 font-bold transition flex items-center gap-1 mx-auto pt-2 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" /> Sign out
           </button>
@@ -74,7 +74,7 @@ export default function PendingApproval() {
         </div>
       </div>
 
-      <footer className="max-w-xl mx-auto w-full text-center text-xs text-slate-600 pt-4">
+      <footer className="max-w-xl mx-auto w-full text-center text-xs text-emerald-700 font-medium pt-4">
         CivicSnap Authority Verification System
       </footer>
     </div>

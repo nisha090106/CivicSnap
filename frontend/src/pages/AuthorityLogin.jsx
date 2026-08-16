@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 import { ShieldCheck, Phone, ArrowRight, Building2, Sparkles, AlertCircle } from 'lucide-react';
 
 const DEPARTMENTS = [
@@ -73,12 +74,16 @@ export default function AuthorityLogin() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse.credential) {
+      setError('Google Sign-In failed');
+      return;
+    }
     setLoading(true);
+    setError('');
     try {
       const res = await googleSignIn({
-        email: `officer_${Math.floor(Math.random() * 10000)}@gov.in`,
-        name: 'Municipal Officer',
+        idToken: credentialResponse.credential,
         role: 'authority',
         department: department
       });
@@ -88,6 +93,8 @@ export default function AuthorityLogin() {
         } else {
           navigate('/dashboard/pending-approval');
         }
+      } else {
+        setError(res.error || 'Google authentication failed');
       }
     } catch (err) {
       setError('Google sign-in error');
@@ -97,46 +104,46 @@ export default function AuthorityLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 md:p-8">
+    <div className="min-h-screen bg-emerald-50/40 text-slate-900 flex flex-col justify-between p-4 md:p-8 font-sans selection:bg-emerald-200">
       
       {/* Header */}
       <header className="max-w-md mx-auto w-full flex items-center justify-between pt-4">
         <div className="flex items-center space-x-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-sky-400 flex items-center justify-center font-bold text-slate-950 text-xl shadow-lg shadow-indigo-500/20">
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center font-bold text-emerald-950 text-xl shadow-inner">
             🏛️
           </div>
-          <span className="text-2xl font-extrabold tracking-tight text-white">CivicSnap</span>
+          <span className="text-2xl font-extrabold tracking-tight text-emerald-950">CivicSnap</span>
         </div>
-        <span className="text-xs px-3 py-1 bg-indigo-500/10 text-indigo-300 rounded-full border border-indigo-500/30 font-semibold flex items-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5" /> Authority Portal
+        <span className="text-xs px-3 py-1 bg-emerald-100 text-emerald-900 rounded-full border border-emerald-300 font-bold flex items-center gap-1">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-800" /> Authority Portal
         </span>
       </header>
 
       {/* Main Login Card */}
       <main className="max-w-md mx-auto w-full my-auto py-8">
-        <div className="glass-card rounded-3xl p-8 shadow-2xl relative border border-slate-800">
+        <div className="bg-white rounded-3xl p-8 shadow-2xl relative border border-emerald-200 space-y-6">
           
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Official Authority Sign-In</h1>
-            <p className="text-slate-400 text-xs mt-1.5">For department officers and municipal authority personnel.</p>
+          <div className="text-center">
+            <h1 className="text-2xl font-extrabold text-emerald-950 tracking-tight">Official Authority Sign-In</h1>
+            <p className="text-slate-600 text-xs mt-1.5 font-medium">For department officers and municipal authority personnel.</p>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs font-medium text-center">
+            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold text-center">
               {error}
             </div>
           )}
 
           {/* Department Selection (Required for Authority Login) */}
-          <div className="mb-6">
-            <label className="block text-xs font-semibold text-indigo-300 mb-2 flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-indigo-400" />
+          <div>
+            <label className="block text-xs font-bold text-emerald-900 mb-2 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-emerald-800" />
               Select Municipal Department
             </label>
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-full px-4 py-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-medium focus:outline-none focus:border-indigo-500 text-sm cursor-pointer"
+              className="w-full px-4 py-3.5 bg-emerald-50/40 border border-emerald-200 rounded-xl text-emerald-950 font-medium focus:outline-none focus:border-emerald-800 text-sm cursor-pointer"
             >
               {DEPARTMENTS.map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
@@ -147,28 +154,25 @@ export default function AuthorityLogin() {
           {step === 'choice' && (
             <div className="space-y-4">
               
-              <button
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white rounded-2xl font-semibold text-sm transition shadow-md disabled:opacity-50"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
-                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.29v3.14C3.26 21.3 7.31 24 12 24z"/>
-                  <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.59H1.29C.47 8.23 0 10.06 0 12s.47 3.77 1.29 5.41l3.99-3.14z"/>
-                  <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l3.99 3.14c.95-2.83 3.6-4.98 6.72-4.98z"/>
-                </svg>
-                Continue with Google
-              </button>
+              <div className="flex justify-center w-full min-h-[44px]">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google Sign-In was cancelled or failed')}
+                  size="large"
+                  width="340"
+                  text="continue_with"
+                  shape="pill"
+                />
+              </div>
 
               <div className="relative my-4 flex items-center justify-center">
-                <div className="border-t border-slate-800 w-full"></div>
-                <span className="bg-slate-950 px-3 text-xs text-slate-500 font-medium uppercase tracking-wider absolute">or</span>
+                <div className="border-t border-emerald-100 w-full"></div>
+                <span className="bg-white px-3 text-xs text-emerald-700 font-semibold uppercase tracking-wider absolute">or</span>
               </div>
 
               <button
                 onClick={() => setStep('phone_input')}
-                className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-2xl transition shadow-lg shadow-indigo-500/20 group"
+                className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-sm rounded-2xl transition shadow-lg shadow-emerald-900/20 group cursor-pointer"
               >
                 <Phone className="w-4 h-4 text-white" />
                 Continue with Phone Number
@@ -181,13 +185,13 @@ export default function AuthorityLogin() {
           {step === 'phone_input' && (
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-2">Officer Phone Number</label>
+                <label className="block text-xs font-bold text-emerald-900 mb-2">Officer Phone Number</label>
                 <input
                   type="tel"
                   placeholder="+91 98765 00000"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 text-base"
+                  className="w-full px-4 py-3.5 bg-emerald-50/40 border border-emerald-200 rounded-xl text-emerald-950 placeholder-emerald-400 focus:outline-none focus:border-emerald-800 text-base"
                   required
                 />
               </div>
@@ -195,7 +199,7 @@ export default function AuthorityLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-2xl transition shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-sm rounded-2xl transition shadow-lg shadow-emerald-900/20 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? 'Sending OTP...' : 'Send Official Verification OTP'}
               </button>
@@ -203,7 +207,7 @@ export default function AuthorityLogin() {
               <button
                 type="button"
                 onClick={() => setStep('choice')}
-                className="w-full py-2 text-xs text-slate-400 hover:text-white transition"
+                className="w-full py-2 text-xs text-emerald-700 hover:text-emerald-950 font-bold transition cursor-pointer"
               >
                 Back to sign in options
               </button>
@@ -214,15 +218,15 @@ export default function AuthorityLogin() {
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               
               {generatedOtp && (
-                <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-xs text-indigo-300 text-center flex items-center justify-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-400" />
-                  <span>Dev OTP Code: <strong className="font-mono text-white text-sm">{generatedOtp}</strong></span>
+                <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl text-xs text-emerald-900 text-center font-medium flex items-center justify-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-800" />
+                  <span>Dev OTP Code: <strong className="font-mono text-emerald-950 text-sm">{generatedOtp}</strong></span>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-2">
-                  Enter 6-Digit OTP Code sent to <span className="text-white">{phoneNumber}</span>
+                <label className="block text-xs font-bold text-emerald-900 mb-2">
+                  Enter 6-Digit OTP Code sent to <span className="text-emerald-950">{phoneNumber}</span>
                 </label>
                 <input
                   type="text"
@@ -230,7 +234,7 @@ export default function AuthorityLogin() {
                   placeholder="123456"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-center font-mono text-xl tracking-widest focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-3.5 bg-emerald-50/40 border border-emerald-200 rounded-xl text-emerald-950 text-center font-mono text-xl tracking-widest focus:outline-none focus:border-emerald-800"
                   required
                 />
               </div>
@@ -238,7 +242,7 @@ export default function AuthorityLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-2xl transition shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-sm rounded-2xl transition shadow-lg shadow-emerald-900/20 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? 'Verifying...' : 'Verify OTP & Submit for Approval'}
               </button>
@@ -246,7 +250,7 @@ export default function AuthorityLogin() {
               <button
                 type="button"
                 onClick={() => setStep('phone_input')}
-                className="w-full py-2 text-xs text-slate-400 hover:text-white transition"
+                className="w-full py-2 text-xs text-emerald-700 hover:text-emerald-950 font-bold transition cursor-pointer"
               >
                 Change Phone Number
               </button>
@@ -259,9 +263,9 @@ export default function AuthorityLogin() {
       <footer className="max-w-md mx-auto w-full text-center pb-6">
         <Link
           to="/"
-          className="text-xs text-slate-500 hover:text-slate-300 transition"
+          className="text-xs text-emerald-800 hover:text-emerald-950 font-bold transition"
         >
-          &larr; Back to Citizen Reporting Portal
+          &larr; Back to Public Landing Page
         </Link>
       </footer>
 
