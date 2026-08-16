@@ -10,6 +10,15 @@ node_modules/
 /.pnp
 .pnp.js
 
+# Python Cache & Virtual Environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+venv/
+.venv/
+
 # Build and distribution output
 dist/
 build/

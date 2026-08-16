@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import LandingPage from './pages/LandingPage';
 import CitizenLogin from './pages/CitizenLogin';
 import AuthorityLogin from './pages/AuthorityLogin';
 import CitizenDashboard from './pages/CitizenDashboard';
@@ -43,8 +44,11 @@ export default function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Public Login Entry Points */}
-          <Route path="/" element={<CitizenLogin />} />
+          {/* Public Marketing Landing Page */}
+          <Route path="/" element={<LandingPage />} />
+
+          {/* Login Entry Points */}
+          <Route path="/login/citizen" element={<CitizenLogin />} />
           <Route path="/login/authority" element={<AuthorityLogin />} />
 
           {/* Protected Role Dashboards */}
