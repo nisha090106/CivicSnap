@@ -1,0 +1,26 @@
+Authority accounts in DB:
+  id=usr_seed_1786964002883_r91ehx | email=fooddrug@civicsnap.gov.in | dept=Food & Drug Authority | approved=true | provider=credential | accountId=fooddrug@civicsnap.gov.in | pwd_len=161
+  id=usr_g_1786961048120_lodb5 | email=nishatest0001@gmail.com | dept=Forest Department | approved=true | provider=null | accountId=null | pwd_len=null
+  id=usr_seed_1786964003149_85veaa | email=forest@civicsnap.gov.in | dept=Forest Department | approved=true | provider=credential | accountId=forest@civicsnap.gov.in | pwd_len=161
+  id=usr_g_1786897080371_plcbv | email=officer_8239@gov.in | dept=Garbage & Waste Management | approved=true | provider=null | accountId=null | pwd_len=null
+  id=usr_seed_1786964002628_1zvodd | email=garbagewaste@civicsnap.gov.in | dept=Garbage & Waste Management | approved=true | provider=credential | accountId=garbagewaste@civicsnap.gov.in | pwd_len=161
+  id=usr_seed_1786964003985_q4glb0 | email=grampanchayat@civicsnap.gov.in | dept=Gram Panchayat | approved=true | provider=credential | accountId=grampanchayat@civicsnap.gov.in | pwd_len=161
+  id=usr_seed_1786964003430_o1agh1 | email=municipal@civicsnap.gov.in | dept=Municipal Corporation | approved=true | provider=credential | accountId=municipal@civicsnap.gov.in | pwd_len=161
+  id=usr_seed_1786964003711_amamsd | email=nagarpanchayat@civicsnap.gov.in | dept=Nagar Panchayat | approved=true | provider=credential | accountId=nagarpanchayat@civicsnap.gov.in | pwd_len=161
+  id=usr_g_1786896029340_x3k8g | email=officer_8874@gov.in | dept=Nagar Panchayat | approved=true | provider=null | accountId=null | pwd_len=null
+  id=usr_1786895325463_r3bgj | email=null | dept=Road & Transport | approved=true | provider=null | accountId=null | pwd_len=null
+  id=usr_g_1786896015342_n7vog | email=officer_4550@gov.in | dept=Road & Transport | approved=true | provider=null | accountId=null | pwd_len=null
+  id=usr_g_1786895780376_aikbr | email=officer_4439@gov.in | dept=Road & Transport | approved=false | provider=null | accountId=null | pwd_len=null
+  id=usr_g_1786895454619_iaxgv | email=officer_6874@gov.in | dept=Road & Transport | approved=true | provider=null | accountId=null | pwd_len=null
+  id=usr_1786896696053_bedsb | email=null | dept=Road & Transport | approved=true | provider=null | accountId=null | pwd_len=null
+  id=usr_seed_1786964001986_zuzf8b | email=roadtransport@civicsnap.gov.in | dept=Road & Transport | approved=true | provider=credential | accountId=roadtransport@civicsnap.gov.in | pwd_len=161
+
+User table constraints:
+  user_email_key: UNIQUE (email)
+  user_phoneNumber_key: UNIQUE ("phoneNumber")
+  user_pkey: PRIMARY KEY (id)
+
+User table indexes:
+  user_pkey: CREATE UNIQUE INDEX user_pkey ON public."user" USING btree (id)
+  user_email_key: CREATE UNIQUE INDEX user_email_key ON public."user" USING btree (email)
+  user_phoneNumber_key: CREATE UNIQUE INDEX "user_phoneNumber_key" ON public."user" USING btree ("phoneNumber")

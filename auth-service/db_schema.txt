@@ -1,0 +1,56 @@
+TABLES:
+Table: reports
+  - report_id: uuid
+  - citizen_id: uuid
+  - image_url: text
+  - category: character varying
+  - latitude: double precision
+  - longitude: double precision
+  - description: text
+  - department: character varying
+  - status: character varying
+  - created_at: timestamp with time zone
+  - vote_count: integer
+Table: user
+  - id: text
+  - name: text
+  - email: text
+  - emailVerified: boolean
+  - image: text
+  - createdAt: timestamp with time zone
+  - updatedAt: timestamp with time zone
+  - role: text
+  - department: text
+  - isApproved: boolean
+  - phoneNumber: text
+  - phoneNumberVerified: boolean
+Table: session
+  - id: text
+  - expiresAt: timestamp with time zone
+  - token: text
+  - createdAt: timestamp with time zone
+  - updatedAt: timestamp with time zone
+  - ipAddress: text
+  - userAgent: text
+  - userId: text
+Table: account
+  - id: text
+  - accountId: text
+  - providerId: text
+  - userId: text
+  - accessToken: text
+  - refreshToken: text
+  - idToken: text
+  - accessTokenExpiresAt: timestamp with time zone
+  - refreshTokenExpiresAt: timestamp with time zone
+  - scope: text
+  - password: text
+  - createdAt: timestamp with time zone
+  - updatedAt: timestamp with time zone
+Table: verification
+  - id: text
+  - identifier: text
+  - value: text
+  - expiresAt: timestamp with time zone
+  - createdAt: timestamp with time zone
+  - updatedAt: timestamp with time zone

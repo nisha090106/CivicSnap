@@ -15,14 +15,14 @@ const DEPARTMENTS = [
 ];
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
-  const { sendOtp, verifyOtp, googleSignIn } = useAuth();
+  const { sendOtp, verifyOtp, googleSignIn, emailSignIn } = useAuth();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState(initialTab); // 'login' | 'signup'
+  const [mode, setMode] = useState(initialRole === 'authority' ? 'login' : initialTab); // 'login' | 'signup'
   const [authMethod, setAuthMethod] = useState('email'); // 'email' | 'phone'
   const [role, setRole] = useState(initialRole); // 'citizen' | 'authority'
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
-  
+
   // Email/Password state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,12 +45,19 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     setError('');
     setLoading(true);
     try {
-      const res = await googleSignIn({
-        email,
-        name: name || (role === 'citizen' ? 'Citizen User' : 'Municipal Officer'),
-        role,
-        department: role === 'authority' ? department : null
-      });
+      let res;
+      if (role === 'authority') {
+        // Authority accounts are pre-seeded — authenticate against credential store
+        res = await emailSignIn({ email, password });
+      } else {
+        // Citizens: use the existing googleSignIn path (also accepts email+name for dev login)
+        res = await googleSignIn({
+          email,
+          name: name || 'Citizen User',
+          role: 'citizen',
+          department: null
+        });
+      }
 
       if (res.success) {
         onClose();
@@ -160,7 +167,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   return (
     <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans">
       <div className="bg-pista-100 rounded-3xl border border-pista-400 max-w-md w-full shadow-2xl relative my-auto overflow-hidden">
-        
+
         {/* Header — DARK BOTTLE GREEN */}
         <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -197,22 +204,24 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             <button
               type="button"
               onClick={() => setRole('citizen')}
-              className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                role === 'citizen'
-                  ? 'bg-bottle-800 text-white shadow-md'
-                  : 'text-bottle-800 hover:bg-pista-200'
-              }`}
+              className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${role === 'citizen'
+                ? 'bg-bottle-800 text-white shadow-md'
+                : 'text-bottle-800 hover:bg-pista-200'
+                }`}
             >
               <UserCheck className="w-4 h-4" /> Citizen
             </button>
             <button
               type="button"
-              onClick={() => setRole('authority')}
-              className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                role === 'authority'
-                  ? 'bg-bottle-800 text-white shadow-md'
-                  : 'text-bottle-800 hover:bg-pista-200'
-              }`}
+              onClick={() => {
+                setRole('authority');
+                setMode('login');
+                setAuthMethod('email');
+              }}
+              className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${role === 'authority'
+                ? 'bg-bottle-800 text-white shadow-md'
+                : 'text-bottle-800 hover:bg-pista-200'
+                }`}
             >
               <ShieldCheck className="w-4 h-4" /> Official Officer
             </button>
@@ -238,37 +247,43 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
           )}
 
           {/* Sign-in Method Tabs */}
-          <div className="flex border-b border-pista-300 gap-4 text-xs font-black text-bottle-800">
-            <button
-              onClick={() => setAuthMethod('email')}
-              className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'email' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
-            >
-              Email & Password
-            </button>
-            <button
-              onClick={() => setAuthMethod('phone')}
-              className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'phone' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
-            >
-              Phone OTP
-            </button>
-          </div>
+          {role === 'citizen' && (
+            <div className="flex border-b border-pista-300 gap-4 text-xs font-black text-bottle-800">
+              <button
+                onClick={() => setAuthMethod('email')}
+                className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'email' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
+              >
+                Email & Password
+              </button>
+              <button
+                onClick={() => setAuthMethod('phone')}
+                className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'phone' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
+              >
+                Phone OTP
+              </button>
+            </div>
+          )}
 
           {/* Google OAuth Button */}
-          <div className="flex justify-center w-full min-h-[44px]">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => setError('Google Sign-In was cancelled or failed')}
-              size="large"
-              width="320"
-              text="continue_with"
-              shape="pill"
-            />
-          </div>
+          {role === 'citizen' && (
+            <>
+              <div className="flex justify-center w-full min-h-[44px]">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google Sign-In was cancelled or failed')}
+                  size="large"
+                  width="320"
+                  text="continue_with"
+                  shape="pill"
+                />
+              </div>
 
-          <div className="relative my-4 flex items-center justify-center">
-            <div className="border-t border-pista-300 w-full"></div>
-            <span className="bg-pista-100 px-3 text-[11px] text-bottle-800 font-black uppercase tracking-wider absolute">or</span>
-          </div>
+              <div className="relative my-4 flex items-center justify-center">
+                <div className="border-t border-pista-300 w-full"></div>
+                <span className="bg-pista-100 px-3 text-[11px] text-bottle-800 font-black uppercase tracking-wider absolute">or</span>
+              </div>
+            </>
+          )}
 
           {/* Email & Password Form */}
           {authMethod === 'email' && (
@@ -293,7 +308,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
                   <Mail className="w-4 h-4 text-bottle-800 absolute left-3.5 top-3.5" />
                   <input
                     type="email"
-                    placeholder="name@example.com"
+                    placeholder="example@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 bg-white border border-pista-400 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-bottle-800"
@@ -389,13 +404,15 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
           )}
 
           {/* Footer Toggle Mode */}
-          <div className="text-center pt-2 text-xs text-slate-700 font-semibold">
-            {mode === 'login' ? (
-              <span>Don't have an account? <button type="button" onClick={() => setMode('signup')} className="font-black underline text-bottle-800 cursor-pointer">Sign Up</button></span>
-            ) : (
-              <span>Already have an account? <button type="button" onClick={() => setMode('login')} className="font-black underline text-bottle-800 cursor-pointer">Sign In</button></span>
-            )}
-          </div>
+          {role === 'citizen' && (
+            <div className="text-center pt-2 text-xs text-slate-700 font-semibold">
+              {mode === 'login' ? (
+                <span>Don't have an account? <button type="button" onClick={() => setMode('signup')} className="font-black underline text-bottle-800 cursor-pointer">Sign Up</button></span>
+              ) : (
+                <span>Already have an account? <button type="button" onClick={() => setMode('login')} className="font-black underline text-bottle-800 cursor-pointer">Sign In</button></span>
+              )}
+            </div>
+          )}
 
         </div>
 

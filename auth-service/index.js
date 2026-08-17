@@ -10,6 +10,11 @@ const { OAuth2Client } = require('google-auth-library');
 const app = express();
 const PORT = process.env.AUTH_SERVICE_PORT || 4000;
 
+// Note: Email+password authentication is handled by Better Auth runtime.
+// Do not perform manual password hashing/verification here — the built-in
+// Better Auth endpoints should be used instead. This file intentionally
+// avoids hand-rolled scrypt comparison logic.
+
 app.use(cors());
 app.use(express.json());
 
@@ -199,6 +204,12 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
     return res.status(500).json({ error: 'OTP Verification failed', details: err.message });
   }
 });
+
+// Email+password sign-in is provided by Better Auth's runtime. Removing the
+// custom endpoint here ensures the frontend uses Better Auth's native
+// `/api/auth/sign-in/email` flow (or server-side `auth.api.signInEmail()`),
+// and prevents any hand-rolled password verification mismatch.
+
 
 // 4. Google OAuth Sign-In Endpoint (with prompt: "select_account" & real id_token verification)
 app.post('/api/auth/google/signin', async (req, res) => {

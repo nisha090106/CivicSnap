@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
             logout();
           }
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -72,6 +72,19 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const emailSignIn = async ({ email, password }) => {
+    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/sign-in/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (data.success && data.token) {
+      saveAuthSession(data.token, data.user);
+    }
+    return data;
+  };
+
   const approveAuthority = async () => {
     if (!user) return;
     const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/approve-authority`, {
@@ -101,6 +114,7 @@ export function AuthProvider({ children }) {
       sendOtp,
       verifyOtp,
       googleSignIn,
+      emailSignIn,
       approveAuthority,
       logout
     }}>

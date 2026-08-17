@@ -1,0 +1,17 @@
+Test 1: Road & Transport login (correct password)
+  Status: 401
+  Success: false
+  Department: N/A
+  Approved: N/A
+  Token: N/A
+
+Test 2: Municipal Corporation login (correct password)
+  Status: 401
+  Success: false
+  Department: N/A
+  Approved: N/A
+
+Test 3: Wrong password (should be rejected HTTP 401)
+  Status: 401
+  Rejected: true
+  Error msg: Invalid email or password
