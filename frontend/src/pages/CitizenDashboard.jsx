@@ -42,47 +42,47 @@ export default function CitizenDashboard() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-emerald-50/40 text-slate-900 flex flex-col justify-between pb-28 md:pb-12 font-sans selection:bg-emerald-200">
+    <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between pb-28 md:pb-12 font-sans selection:bg-pista-300">
       
-      {/* 1. Header Navigation Bar */}
-      <header className="sticky top-0 z-[100] bg-white/90 backdrop-blur-md border-b border-emerald-100 px-4 md:px-8 py-3.5 flex items-center justify-between shadow-sm">
+      {/* 1. TOP HEADER NAVIGATION BAR — DARK BOTTLE GREEN */}
+      <header className="sticky top-0 z-[100] bg-bottle-900 border-b border-bottle-800 px-4 md:px-8 py-3.5 flex items-center justify-between shadow-md text-white">
         
         {/* Brand */}
         <div className="flex items-center space-x-3">
-          <div className="w-11 h-11 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center font-bold text-emerald-950 text-2xl shadow-inner">
+          <div className="w-11 h-11 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-2xl shadow-inner">
             📸
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-emerald-950 flex items-center gap-2">
+            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
               CivicSnap
             </h1>
-            <p className="text-[11px] text-emerald-700 font-semibold uppercase tracking-widest">Citizen Reporting Portal</p>
+            <p className="text-[11px] text-pista-300 font-extrabold uppercase tracking-widest">Citizen Reporting Portal</p>
           </div>
         </div>
 
-        {/* Top Right Quick Actions */}
+        {/* Top Right Quick Actions — Dark Green Buttons */}
         <div className="flex items-center space-x-2.5">
           
           {/* Notifications Bell Button */}
           <button
             onClick={() => setIsNotifModalOpen(true)}
-            className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl bg-emerald-100 hover:bg-emerald-200/80 border border-emerald-300 flex items-center justify-center text-emerald-900 transition relative cursor-pointer"
+            className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition relative cursor-pointer shadow-sm"
             aria-label="View notifications"
           >
-            <Bell className="w-6 h-6 text-emerald-900" />
-            <span className="w-2.5 h-2.5 bg-emerald-600 rounded-full absolute top-3 right-3 ring-2 ring-white"></span>
+            <Bell className="w-6 h-6 text-white" />
+            <span className="w-2.5 h-2.5 bg-pista-300 rounded-full absolute top-3 right-3 ring-2 ring-bottle-900"></span>
           </button>
 
           {/* User Profile Button */}
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="h-12 min-h-[48px] px-3.5 rounded-2xl bg-emerald-100 hover:bg-emerald-200/80 border border-emerald-300 flex items-center gap-2 text-emerald-900 transition cursor-pointer"
+            className="h-12 min-h-[48px] px-3.5 rounded-2xl bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center gap-2 text-white transition cursor-pointer shadow-sm"
             aria-label="View profile"
           >
-            <div className="w-7 h-7 rounded-full bg-emerald-800 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+            <div className="w-7 h-7 rounded-full bg-bottle-950 text-pista-300 flex items-center justify-center text-xs font-black shadow-xs">
               {user?.name ? user.name[0].toUpperCase() : 'C'}
             </div>
-            <span className="text-xs font-bold hidden sm:inline text-emerald-950 max-w-[120px] truncate">
+            <span className="text-xs font-black hidden sm:inline text-white max-w-[120px] truncate">
               {user?.name || 'Citizen'}
             </span>
           </button>
@@ -95,29 +95,29 @@ export default function CitizenDashboard() {
       <main className="max-w-5xl mx-auto w-full px-4 md:px-8 pt-6 space-y-8">
         
         {/* DOMINANT CORE HERO: Big Central Camera Action */}
-        <section className="bg-white rounded-3xl p-6 md:p-8 border border-emerald-200 relative overflow-hidden shadow-xl">
+        <section className="bg-pista-100 rounded-3xl p-6 md:p-8 border border-pista-400 relative overflow-hidden shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             
             <div className="space-y-3 text-center md:text-left max-w-xl">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-900 font-bold rounded-full text-xs border border-emerald-300 shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-800" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-bottle-900 text-pista-100 font-extrabold rounded-full text-xs border border-bottle-800 shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-pista-300" />
                 1-Tap AI Reporting
               </span>
-              <h2 className="text-2xl md:text-4xl font-extrabold text-emerald-950 tracking-tight leading-tight">
+              <h2 className="text-2xl md:text-4xl font-black text-bottle-900 tracking-tight leading-tight">
                 See a Pothole or Trash? <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-800 via-teal-700 to-emerald-900">
+                <span className="text-bottle-800">
                   Report it Instantly!
                 </span>
               </h2>
-              <p className="text-slate-700 text-xs md:text-sm leading-relaxed font-medium">
+              <p className="text-slate-800 text-xs md:text-sm leading-relaxed font-semibold">
                 Take a photo of any community problem. CivicSnap automatically detects the issue and routes it directly to your municipal authority.
               </p>
             </div>
 
-            {/* DOMINANT CENTRAL CAMERA REPORT BUTTON */}
+            {/* DOMINANT CENTRAL CAMERA REPORT BUTTON — DARK BOTTLE GREEN */}
             <button
               onClick={() => setIsReportModalOpen(true)}
-              className="w-full md:w-auto min-h-[64px] px-8 py-5 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-lg rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-emerald-900/25 flex items-center justify-center gap-3 shrink-0 cursor-pointer"
+              className="w-full md:w-auto min-h-[64px] px-8 py-5 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-lg rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-bottle-950/40 flex items-center justify-center gap-3 shrink-0 cursor-pointer border border-bottle-700"
             >
               <Camera className="w-8 h-8 text-white stroke-[2.5]" />
               <span>SNAP & REPORT ISSUE</span>
@@ -130,28 +130,28 @@ export default function CitizenDashboard() {
         <div className="space-y-6">
           
           {/* Section Selector Pills */}
-          <div className="flex items-center gap-2 border-b border-emerald-200/80 pb-3 overflow-x-auto">
+          <div className="flex items-center gap-2 border-b border-pista-400 pb-3 overflow-x-auto">
             <button
               onClick={() => setActiveTab('feed')}
-              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${
+              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${
                 activeTab === 'feed'
-                  ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                  : 'bg-white text-emerald-900 border border-emerald-200 hover:bg-emerald-100/60'
+                  ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
+                  : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
               }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4 text-white" />
               <span>My Reports ({reports.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('map')}
-              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${
+              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${
                 activeTab === 'map'
-                  ? 'bg-emerald-800 text-white shadow-md shadow-emerald-900/20'
-                  : 'bg-white text-emerald-900 border border-emerald-200 hover:bg-emerald-100/60'
+                  ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
+                  : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
               }`}
             >
-              <MapPin className="w-4 h-4" />
+              <MapPin className="w-4 h-4 text-white" />
               <span>Community Map</span>
             </button>
           </div>
@@ -161,35 +161,35 @@ export default function CitizenDashboard() {
             <div className="space-y-4">
               {reports.length === 0 ? (
                 /* Accessible Empty State */
-                <div className="bg-white rounded-3xl p-10 md:p-14 border border-emerald-200 text-center space-y-4 shadow-md">
-                  <div className="w-16 h-16 rounded-3xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 mx-auto shadow-inner">
-                    <FileText className="w-8 h-8 text-emerald-800" />
+                <div className="bg-pista-100 rounded-3xl p-10 md:p-14 border border-pista-400 text-center space-y-4 shadow-md">
+                  <div className="w-16 h-16 rounded-3xl bg-bottle-900 border border-bottle-800 flex items-center justify-center text-pista-300 mx-auto shadow-inner">
+                    <FileText className="w-8 h-8 text-pista-300" />
                   </div>
                   <div className="space-y-1.5 max-w-sm mx-auto">
-                    <h3 className="text-xl font-extrabold text-emerald-950">You Haven't Reported Anything Yet</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                    <h3 className="text-xl font-black text-bottle-900">You Haven't Reported Anything Yet</h3>
+                    <p className="text-slate-700 leading-relaxed font-semibold text-xs">
                       Whenever you see potholes, garbage dumps, or water leaks, tap the Camera button to file a report.
                     </p>
                   </div>
                   <button
                     onClick={() => setIsReportModalOpen(true)}
-                    className="min-h-[48px] px-6 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-xs rounded-xl transition inline-flex items-center gap-2 shadow-md shadow-emerald-900/20 cursor-pointer"
+                    className="min-h-[48px] px-6 py-3 bg-bottle-800 hover:bg-bottle-600 text-white font-extrabold text-xs rounded-xl transition inline-flex items-center gap-2 shadow-md shadow-bottle-950/30 cursor-pointer border border-bottle-700"
                   >
-                    <Camera className="w-4 h-4" />
+                    <Camera className="w-4 h-4 text-white" />
                     Report Your First Issue Now
                   </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {reports.map((report, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-5 border border-emerald-200 space-y-3 shadow-sm">
+                    <div key={i} className="bg-pista-100 rounded-2xl p-5 border border-pista-400 space-y-3 shadow-xs">
                       <div className="flex justify-between items-start">
-                        <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider">{report.category}</span>
+                        <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">{report.category}</span>
                         <span className="text-[10px] px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold">
                           {report.status || 'Pending'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-700 font-medium">{report.description}</p>
+                      <p className="text-xs text-slate-800 font-semibold">{report.description}</p>
                     </div>
                   ))}
                 </div>
@@ -208,9 +208,9 @@ export default function CitizenDashboard() {
 
       </main>
 
-      {/* 3. ACCESSIBLE BOTTOM NAVIGATION BAR (Mobile-First, Min 48px Touch Targets) */}
+      {/* 3. BOTTOM NAVIGATION BAR — DARK BOTTLE GREEN */}
       <nav 
-        className="fixed bottom-0 left-0 right-0 z-[2000] bg-white/95 backdrop-blur-2xl border-t border-emerald-200 px-3 py-2 md:py-3 shadow-2xl"
+        className="fixed bottom-0 left-0 right-0 z-[2000] bg-bottle-900 border-t border-bottle-800 px-3 py-2 md:py-3 shadow-2xl text-white"
         aria-label="Bottom Navigation"
       >
         <div className="max-w-md mx-auto flex items-center justify-around">
@@ -219,7 +219,7 @@ export default function CitizenDashboard() {
           <button
             onClick={() => setActiveTab('feed')}
             className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${
-              activeTab === 'feed' ? 'text-emerald-900 font-extrabold' : 'text-emerald-700 hover:text-emerald-950 font-semibold'
+              activeTab === 'feed' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
             }`}
             aria-label="My Reports tab"
           >
@@ -231,7 +231,7 @@ export default function CitizenDashboard() {
           <button
             onClick={() => setActiveTab('map')}
             className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${
-              activeTab === 'map' ? 'text-emerald-900 font-extrabold' : 'text-emerald-700 hover:text-emerald-950 font-semibold'
+              activeTab === 'map' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
             }`}
             aria-label="Community Map tab"
           >
@@ -239,10 +239,10 @@ export default function CitizenDashboard() {
             <span className="text-[10px] uppercase font-bold tracking-wider">Map</span>
           </button>
 
-          {/* CENTRAL DOMINANT FLOATING ACTION CAMERA BUTTON (FAB) */}
+          {/* CENTRAL DOMINANT FLOATING ACTION CAMERA BUTTON (FAB) — DARK GREEN */}
           <button
             onClick={() => setIsReportModalOpen(true)}
-            className="w-16 h-16 min-h-[64px] min-w-[64px] -mt-7 rounded-full bg-emerald-800 hover:bg-emerald-900 text-white shadow-2xl shadow-emerald-900/40 ring-4 ring-emerald-50 flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 cursor-pointer"
+            className="w-16 h-16 min-h-[64px] min-w-[64px] -mt-7 rounded-full bg-bottle-800 hover:bg-bottle-600 text-white shadow-2xl shadow-bottle-950/60 ring-4 ring-bottle-950 flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 cursor-pointer border border-bottle-700"
             aria-label="Report an issue with camera"
           >
             <Camera className="w-8 h-8 text-white stroke-[2.5]" />
@@ -251,7 +251,7 @@ export default function CitizenDashboard() {
           {/* Tab 3: Notifications */}
           <button
             onClick={() => setIsNotifModalOpen(true)}
-            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl text-emerald-700 hover:text-emerald-950 font-semibold transition relative cursor-pointer"
+            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl text-pista-300/80 hover:text-white font-bold transition relative cursor-pointer"
             aria-label="Notifications"
           >
             <Bell className="w-6 h-6" />
@@ -261,7 +261,7 @@ export default function CitizenDashboard() {
           {/* Tab 4: Profile */}
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl text-emerald-700 hover:text-emerald-950 font-semibold transition cursor-pointer"
+            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl text-pista-300/80 hover:text-white font-bold transition cursor-pointer"
             aria-label="Profile and Settings"
           >
             <User className="w-6 h-6" />

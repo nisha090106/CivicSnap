@@ -4,12 +4,25 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 import App from './App.jsx'
 import './index.css'
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '835284341944-t7ihppp69k53upaa72eudtq9h72t2lfv.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+if (GOOGLE_CLIENT_ID) {
+  const maskedId = GOOGLE_CLIENT_ID.length > 25
+    ? `${GOOGLE_CLIENT_ID.slice(0, 8)}...${GOOGLE_CLIENT_ID.slice(-20)}`
+    : GOOGLE_CLIENT_ID;
+  console.log(`[CivicSnap] Initializing Google OAuth with Client ID: ${maskedId}`);
+} else {
+  console.error('[CivicSnap Error] CRITICAL: VITE_GOOGLE_CLIENT_ID is missing or not defined in frontend/.env!');
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    {GOOGLE_CLIENT_ID ? (
+      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+        <App />
+      </GoogleOAuthProvider>
+    ) : (
       <App />
-    </GoogleOAuthProvider>
+    )}
   </React.StrictMode>,
 )

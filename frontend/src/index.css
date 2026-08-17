@@ -2,10 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: #E8F5E1;
+  color: #0F172A;
+}
+
 @layer utilities {
   .glass-card {
-    background: rgba(15, 23, 42, 0.75);
+    background: rgba(243, 250, 240, 0.95);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid #CBE5C0;
   }
 }

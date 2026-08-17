@@ -45,7 +45,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     setError('');
     setLoading(true);
     try {
-      // Direct sign-in using Google handler structure for email users
       const res = await googleSignIn({
         email,
         name: name || (role === 'citizen' ? 'Citizen User' : 'Municipal Officer'),
@@ -159,241 +158,245 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   };
 
   return (
-    <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl border border-emerald-100 p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-6 my-auto">
+    <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans">
+      <div className="bg-pista-100 rounded-3xl border border-pista-400 max-w-md w-full shadow-2xl relative my-auto overflow-hidden">
         
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+        {/* Header — DARK BOTTLE GREEN */}
+        <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center font-bold text-emerald-800 text-xl shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-xl shadow-inner">
               📸
             </div>
             <div>
-              <h3 className="font-extrabold text-xl text-emerald-950">
+              <h3 className="font-black text-xl text-white">
                 {mode === 'login' ? 'Welcome Back' : 'Create CivicSnap Account'}
               </h3>
-              <p className="text-xs text-emerald-700 font-medium">Public Civic Issue Platform</p>
+              <p className="text-xs text-pista-300 font-extrabold">Public Civic Issue Platform</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 transition"
+            className="w-10 h-10 rounded-full bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition cursor-pointer"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {error && (
-          <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold text-center">
-            {error}
-          </div>
-        )}
+        <div className="p-6 space-y-6">
 
-        {/* Account Role Selector (Citizen vs Authority) */}
-        <div className="grid grid-cols-2 gap-2 bg-emerald-50/80 p-1.5 rounded-2xl border border-emerald-100">
-          <button
-            type="button"
-            onClick={() => setRole('citizen')}
-            className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              role === 'citizen'
-                ? 'bg-emerald-800 text-white shadow-md'
-                : 'text-emerald-800 hover:bg-emerald-100/60'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" /> Citizen
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole('authority')}
-            className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-              role === 'authority'
-                ? 'bg-emerald-800 text-white shadow-md'
-                : 'text-emerald-800 hover:bg-emerald-100/60'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" /> Official Officer
-          </button>
-        </div>
-
-        {/* Department Selector for Authority Accounts */}
-        {role === 'authority' && (
-          <div className="space-y-1.5">
-            <label className="block text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-emerald-800" />
-              Select Municipal Department
-            </label>
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full px-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl text-emerald-950 font-medium text-xs focus:outline-none focus:border-emerald-800 cursor-pointer"
-            >
-              {DEPARTMENTS.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Sign-in Method Tabs */}
-        <div className="flex border-b border-emerald-100 gap-4 text-xs font-bold text-emerald-800">
-          <button
-            onClick={() => setAuthMethod('email')}
-            className={`pb-2 border-b-2 transition ${authMethod === 'email' ? 'border-emerald-800 text-emerald-950' : 'border-transparent text-emerald-600'}`}
-          >
-            Email & Password
-          </button>
-          <button
-            onClick={() => setAuthMethod('phone')}
-            className={`pb-2 border-b-2 transition ${authMethod === 'phone' ? 'border-emerald-800 text-emerald-950' : 'border-transparent text-emerald-600'}`}
-          >
-            Phone OTP
-          </button>
-        </div>
-
-        {/* Google OAuth Button */}
-        <div className="flex justify-center w-full min-h-[44px]">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => setError('Google Sign-In was cancelled or failed')}
-            size="large"
-            width="320"
-            text="continue_with"
-            shape="pill"
-          />
-        </div>
-
-        <div className="relative my-4 flex items-center justify-center">
-          <div className="border-t border-emerald-100 w-full"></div>
-          <span className="bg-white px-3 text-[11px] text-emerald-600 font-semibold uppercase tracking-wider absolute">or</span>
-        </div>
-
-        {/* Email & Password Form */}
-        {authMethod === 'email' && (
-          <form onSubmit={handleEmailAuth} className="space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-xs font-bold text-emerald-900 mb-1">Full Name</label>
-                <input
-                  type="text"
-                  placeholder="Enter full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 bg-emerald-50/40 border border-emerald-200 rounded-xl text-xs text-emerald-950 placeholder-emerald-400 focus:outline-none focus:border-emerald-800"
-                  required
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold text-emerald-900 mb-1">Email Address</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-emerald-600 absolute left-3.5 top-3.5" />
-                <input
-                  type="email"
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-emerald-50/40 border border-emerald-200 rounded-xl text-xs text-emerald-950 placeholder-emerald-400 focus:outline-none focus:border-emerald-800"
-                  required
-                />
-              </div>
+          {error && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold text-center">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-bold text-emerald-900 mb-1">Password</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-emerald-600 absolute left-3.5 top-3.5" />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-emerald-50/40 border border-emerald-200 rounded-xl text-xs text-emerald-950 placeholder-emerald-400 focus:outline-none focus:border-emerald-800"
-                  required
-                />
-              </div>
-            </div>
-
+          {/* Account Role Selector (Citizen vs Authority) */}
+          <div className="grid grid-cols-2 gap-2 bg-pista-300/80 p-1.5 rounded-2xl border border-pista-400">
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-sm rounded-2xl transition shadow-lg shadow-emerald-900/20 disabled:opacity-50"
+              type="button"
+              onClick={() => setRole('citizen')}
+              className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                role === 'citizen'
+                  ? 'bg-bottle-800 text-white shadow-md'
+                  : 'text-bottle-800 hover:bg-pista-200'
+              }`}
             >
-              {loading ? 'Authenticating...' : mode === 'login' ? 'Sign In to Account' : 'Create Account'}
+              <UserCheck className="w-4 h-4" /> Citizen
             </button>
-          </form>
-        )}
+            <button
+              type="button"
+              onClick={() => setRole('authority')}
+              className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                role === 'authority'
+                  ? 'bg-bottle-800 text-white shadow-md'
+                  : 'text-bottle-800 hover:bg-pista-200'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" /> Official Officer
+            </button>
+          </div>
 
-        {/* Phone OTP Form */}
-        {authMethod === 'phone' && (
-          <div className="space-y-4">
-            {otpStep === 'send' ? (
-              <form onSubmit={handleSendOtp} className="space-y-4">
+          {/* Department Selector for Authority Accounts */}
+          {role === 'authority' && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-black text-bottle-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-bottle-800" />
+                Select Municipal Department
+              </label>
+              <select
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-slate-900 font-bold text-xs focus:outline-none focus:border-bottle-800 cursor-pointer"
+              >
+                {DEPARTMENTS.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Sign-in Method Tabs */}
+          <div className="flex border-b border-pista-300 gap-4 text-xs font-black text-bottle-800">
+            <button
+              onClick={() => setAuthMethod('email')}
+              className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'email' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
+            >
+              Email & Password
+            </button>
+            <button
+              onClick={() => setAuthMethod('phone')}
+              className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'phone' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
+            >
+              Phone OTP
+            </button>
+          </div>
+
+          {/* Google OAuth Button */}
+          <div className="flex justify-center w-full min-h-[44px]">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError('Google Sign-In was cancelled or failed')}
+              size="large"
+              width="320"
+              text="continue_with"
+              shape="pill"
+            />
+          </div>
+
+          <div className="relative my-4 flex items-center justify-center">
+            <div className="border-t border-pista-300 w-full"></div>
+            <span className="bg-pista-100 px-3 text-[11px] text-bottle-800 font-black uppercase tracking-wider absolute">or</span>
+          </div>
+
+          {/* Email & Password Form */}
+          {authMethod === 'email' && (
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              {mode === 'signup' && (
                 <div>
-                  <label className="block text-xs font-bold text-emerald-900 mb-1">Phone Number</label>
-                  <input
-                    type="tel"
-                    placeholder="+91 98765 43210"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full px-4 py-3 bg-emerald-50/40 border border-emerald-200 rounded-xl text-xs text-emerald-950 placeholder-emerald-400 focus:outline-none focus:border-emerald-800"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-sm rounded-2xl transition shadow-lg shadow-emerald-900/20 disabled:opacity-50"
-                >
-                  {loading ? 'Sending OTP...' : 'Send Verification OTP'}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                {generatedOtp && (
-                  <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl text-xs text-emerald-900 text-center font-medium flex items-center justify-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-800" />
-                    <span>Dev OTP Code: <strong className="font-mono text-emerald-950">{generatedOtp}</strong></span>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-bold text-emerald-900 mb-1">
-                    Enter 6-Digit Code sent to <span className="text-emerald-950">{phoneNumber}</span>
-                  </label>
+                  <label className="block text-xs font-black text-bottle-800 mb-1">Full Name</label>
                   <input
                     type="text"
-                    maxLength={6}
-                    placeholder="123456"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    className="w-full px-4 py-3 bg-emerald-50/40 border border-emerald-200 rounded-xl text-center font-mono text-lg tracking-widest text-emerald-950 focus:outline-none focus:border-emerald-800"
+                    placeholder="Enter full name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-bottle-800"
                     required
                   />
                 </div>
+              )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-sm rounded-2xl transition shadow-lg shadow-emerald-900/20 disabled:opacity-50"
-                >
-                  {loading ? 'Verifying...' : 'Verify & Continue'}
-                </button>
-              </form>
+              <div>
+                <label className="block text-xs font-black text-bottle-800 mb-1">Email Address</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-bottle-800 absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-pista-400 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-bottle-800"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-bottle-800 mb-1">Password</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-bottle-800 absolute left-3.5 top-3.5" />
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-pista-400 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-bottle-800"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+              >
+                {loading ? 'Authenticating...' : mode === 'login' ? 'Sign In to Account' : 'Create Account'}
+              </button>
+            </form>
+          )}
+
+          {/* Phone OTP Form */}
+          {authMethod === 'phone' && (
+            <div className="space-y-4">
+              {otpStep === 'send' ? (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-black text-bottle-800 mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      placeholder="+91 98765 43210"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-bottle-800"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+                  >
+                    {loading ? 'Sending OTP...' : 'Send Verification OTP'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  {generatedOtp && (
+                    <div className="p-3 bg-pista-300 border border-pista-400 rounded-xl text-xs text-bottle-800 text-center font-bold flex items-center justify-center gap-2">
+                      <Sparkles className="w-4 h-4 text-bottle-800" />
+                      <span>Dev OTP Code: <strong className="font-mono text-bottle-900 text-sm font-black">{generatedOtp}</strong></span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-black text-bottle-800 mb-1">
+                      Enter 6-Digit Code sent to <span className="text-bottle-900 font-black">{phoneNumber}</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="123456"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-center font-mono text-lg tracking-widest text-slate-900 font-bold focus:outline-none focus:border-bottle-800"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+                  >
+                    {loading ? 'Verifying...' : 'Verify & Continue'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* Footer Toggle Mode */}
+          <div className="text-center pt-2 text-xs text-slate-700 font-semibold">
+            {mode === 'login' ? (
+              <span>Don't have an account? <button type="button" onClick={() => setMode('signup')} className="font-black underline text-bottle-800 cursor-pointer">Sign Up</button></span>
+            ) : (
+              <span>Already have an account? <button type="button" onClick={() => setMode('login')} className="font-black underline text-bottle-800 cursor-pointer">Sign In</button></span>
             )}
           </div>
-        )}
 
-        {/* Footer Toggle Mode */}
-        <div className="text-center pt-2 text-xs text-emerald-800">
-          {mode === 'login' ? (
-            <span>Don't have an account? <button type="button" onClick={() => setMode('signup')} className="font-bold underline text-emerald-950">Sign Up</button></span>
-          ) : (
-            <span>Already have an account? <button type="button" onClick={() => setMode('login')} className="font-bold underline text-emerald-950">Sign In</button></span>
-          )}
         </div>
 
       </div>
