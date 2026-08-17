@@ -6,6 +6,8 @@ const express = require('express');
 const cors = require('cors');
 const { pool, generateToken, verifyToken } = require('./auth');
 const { OAuth2Client } = require('google-auth-library');
+const { scrypt: scryptAsync } = require('node:crypto');
+const SCRYPT_CONFIG = { N: 16384, r: 16, p: 1, dkLen: 64 };
 
 const app = express();
 const PORT = process.env.AUTH_SERVICE_PORT || 4000;
@@ -209,6 +211,94 @@ app.post('/api/auth/phone/verify-otp', async (req, res) => {
 // custom endpoint here ensures the frontend uses Better Auth's native
 // `/api/auth/sign-in/email` flow (or server-side `auth.api.signInEmail()`),
 // and prevents any hand-rolled password verification mismatch.
+
+// Scrypt verification helper matching the seeding script / Better Auth utils
+function scryptVerify(password, hash) {
+  return new Promise((resolve, reject) => {
+    if (!hash || typeof hash !== 'string') return resolve(false);
+    const parts = hash.split(':');
+    if (parts.length !== 2) return resolve(false);
+    const [salt, key] = parts;
+    if (!salt || !key) return resolve(false);
+    scryptAsync(
+      password.normalize('NFKC'),
+      salt,
+      SCRYPT_CONFIG.dkLen,
+      {
+        N: SCRYPT_CONFIG.N,
+        r: SCRYPT_CONFIG.r,
+        p: SCRYPT_CONFIG.p,
+        maxmem: 128 * SCRYPT_CONFIG.N * SCRYPT_CONFIG.r * 2
+      },
+      (err, derived) => {
+        if (err) return reject(err);
+        try {
+          resolve(derived.toString('hex') === key);
+        } catch (e) {
+          resolve(false);
+        }
+      }
+    );
+  });
+}
+
+// 4. Email + Password Sign-In (for pre-seeded authority accounts)
+app.post('/api/auth/sign-in/email', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    // Look up user by email
+    const userRes = await pool.query(`SELECT * FROM "user" WHERE "email" = $1`, [email.toLowerCase().trim()]);
+    if (userRes.rows.length === 0) {
+      // Generic error to avoid leaking which piece was incorrect
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const user = userRes.rows[0];
+
+    // Ensure account has a credential entry
+    const accountRes = await pool.query(
+      `SELECT * FROM "account" WHERE "userId" = $1 AND "providerId" = 'credential'`,
+      [user.id]
+    );
+    if (accountRes.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const account = accountRes.rows[0];
+
+    const isValid = await scryptVerify(password, account.password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Reject unapproved authority accounts
+    if (user.isApproved === false) {
+      return res.status(403).json({ error: 'Account pending approval' });
+    }
+
+    const token = generateToken(user);
+    return res.status(200).json({
+      success: true,
+      message: 'Email sign-in successful',
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        isApproved: user.isApproved
+      }
+    });
+  } catch (err) {
+    console.error('Error in email sign-in:', err?.message || err);
+    return res.status(500).json({ error: 'Email sign-in failed', details: err.message });
+  }
+});
 
 
 // 4. Google OAuth Sign-In Endpoint (with prompt: "select_account" & real id_token verification)
