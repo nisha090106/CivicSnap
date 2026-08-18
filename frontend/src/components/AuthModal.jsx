@@ -5,32 +5,30 @@ import { GoogleLogin } from '@react-oauth/google';
 import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck } from 'lucide-react';
 
 const DEPARTMENTS = [
-  "Road & Transport",
-  "Garbage & Waste Management",
-  "Food & Drug Authority",
-  "Forest Department",
-  "Municipal Corporation",
-  "Nagar Panchayat",
-  "Gram Panchayat"
+  'Road & Transport',
+  'Garbage & Waste Management',
+  'Food & Drug Authority',
+  'Forest Department',
+  'Municipal Corporation',
+  'Nagar Panchayat',
+  'Gram Panchayat'
 ];
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
   const { sendOtp, verifyOtp, googleSignIn, emailSignIn } = useAuth();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState(initialRole === 'authority' ? 'login' : initialTab); // 'login' | 'signup'
-  const [authMethod, setAuthMethod] = useState('email'); // 'email' | 'phone'
-  const [role, setRole] = useState(initialRole); // 'citizen' | 'authority'
+  const [mode, setMode] = useState(initialRole === 'authority' ? 'login' : initialTab);
+  const [authMethod, setAuthMethod] = useState('email');
+  const [role, setRole] = useState(initialRole);
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
 
-  // Email/Password state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
 
-  // Phone OTP state
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpStep, setOtpStep] = useState('send'); // 'send' | 'verify'
+  const [otpStep, setOtpStep] = useState('send');
   const [otpCode, setOtpCode] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
 
@@ -39,35 +37,38 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
 
   if (!isOpen) return null;
 
+  const redirectAfterAuth = (user) => {
+    onClose();
+    if (role === 'citizen') {
+      navigate('/dashboard/citizen');
+      return;
+    }
+
+    if (user?.isApproved) {
+      navigate(`/dashboard/authority/${encodeURIComponent(user.department || department)}`);
+    } else {
+      navigate('/dashboard/pending-approval');
+    }
+  };
+
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     if (!email || !password) return setError('Please enter both email and password');
+
     setError('');
     setLoading(true);
+
     try {
-      let res;
-      if (role === 'authority') {
-        // Authority accounts are pre-seeded — authenticate against credential store
-        res = await emailSignIn({ email, password });
-      } else {
-        // Citizens: use the existing googleSignIn path (also accepts email+name for dev login)
-        res = await googleSignIn({
-          email,
-          name: name || 'Citizen User',
-          role: 'citizen',
-          department: null
-        });
-      }
+      const res = await emailSignIn({
+        email,
+        password,
+        role,
+        department: role === 'authority' ? department : null,
+        name: name || undefined
+      });
 
       if (res.success) {
-        onClose();
-        if (role === 'citizen') {
-          navigate('/dashboard/citizen');
-        } else if (res.user.isApproved) {
-          navigate(`/dashboard/authority/${encodeURIComponent(res.user.department || department)}`);
-        } else {
-          navigate('/dashboard/pending-approval');
-        }
+        redirectAfterAuth(res.user);
       } else {
         setError(res.error || 'Sign-in failed');
       }
@@ -81,8 +82,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   const handleSendOtp = async (e) => {
     e.preventDefault();
     if (!phoneNumber) return setError('Please enter your phone number');
+
     setError('');
     setLoading(true);
+
     try {
       const res = await sendOtp(phoneNumber);
       if (res.success) {
@@ -101,8 +104,10 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     if (!otpCode) return setError('Please enter 6-digit OTP code');
+
     setError('');
     setLoading(true);
+
     try {
       const res = await verifyOtp({
         phoneNumber,
@@ -113,14 +118,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
       });
 
       if (res.success) {
-        onClose();
-        if (role === 'citizen') {
-          navigate('/dashboard/citizen');
-        } else if (res.user.isApproved) {
-          navigate(`/dashboard/authority/${encodeURIComponent(res.user.department || department)}`);
-        } else {
-          navigate('/dashboard/pending-approval');
-        }
+        redirectAfterAuth(res.user);
       } else {
         setError(res.error || 'Invalid OTP code');
       }
@@ -132,12 +130,14 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   };
 
   const handleGoogleSuccess = async (credentialResponse) => {
-    if (!credentialResponse.credential) {
+    if (!credentialResponse?.credential) {
       setError('Google Sign-In failed: No credential token received');
       return;
     }
+
     setLoading(true);
     setError('');
+
     try {
       const res = await googleSignIn({
         idToken: credentialResponse.credential,
@@ -146,14 +146,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
       });
 
       if (res.success) {
-        onClose();
-        if (role === 'citizen') {
-          navigate('/dashboard/citizen');
-        } else if (res.user.isApproved) {
-          navigate(`/dashboard/authority/${encodeURIComponent(res.user.department || department)}`);
-        } else {
-          navigate('/dashboard/pending-approval');
-        }
+        redirectAfterAuth(res.user);
       } else {
         setError(res.error || 'Google Authentication failed');
       }
@@ -167,8 +160,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   return (
     <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans">
       <div className="bg-pista-100 rounded-3xl border border-pista-400 max-w-md w-full shadow-2xl relative my-auto overflow-hidden">
-
-        {/* Header — DARK BOTTLE GREEN */}
         <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-xl shadow-inner">
@@ -192,14 +183,12 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
         </div>
 
         <div className="p-6 space-y-6">
-
           {error && (
             <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold text-center">
               {error}
             </div>
           )}
 
-          {/* Account Role Selector (Citizen vs Authority) */}
           <div className="grid grid-cols-2 gap-2 bg-pista-300/80 p-1.5 rounded-2xl border border-pista-400">
             <button
               type="button"
@@ -227,7 +216,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             </button>
           </div>
 
-          {/* Department Selector for Authority Accounts */}
           {role === 'authority' && (
             <div className="space-y-1.5">
               <label className="block text-xs font-black text-bottle-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -239,23 +227,24 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-slate-900 font-bold text-xs focus:outline-none focus:border-bottle-800 cursor-pointer"
               >
-                {DEPARTMENTS.map(dept => (
+                {DEPARTMENTS.map((dept) => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Sign-in Method Tabs */}
           {role === 'citizen' && (
             <div className="flex border-b border-pista-300 gap-4 text-xs font-black text-bottle-800">
               <button
+                type="button"
                 onClick={() => setAuthMethod('email')}
                 className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'email' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
               >
                 Email & Password
               </button>
               <button
+                type="button"
                 onClick={() => setAuthMethod('phone')}
                 className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'phone' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
               >
@@ -264,7 +253,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             </div>
           )}
 
-          {/* Google OAuth Button */}
           {role === 'citizen' && (
             <>
               <div className="flex justify-center w-full min-h-[44px]">
@@ -285,7 +273,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             </>
           )}
 
-          {/* Email & Password Form */}
           {authMethod === 'email' && (
             <form onSubmit={handleEmailAuth} className="space-y-4">
               {mode === 'signup' && (
@@ -342,7 +329,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             </form>
           )}
 
-          {/* Phone OTP Form */}
           {authMethod === 'phone' && (
             <div className="space-y-4">
               {otpStep === 'send' ? (
@@ -403,7 +389,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             </div>
           )}
 
-          {/* Footer Toggle Mode */}
           {role === 'citizen' && (
             <div className="text-center pt-2 text-xs text-slate-700 font-semibold">
               {mode === 'login' ? (
@@ -413,10 +398,9 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
               )}
             </div>
           )}
-
         </div>
-
       </div>
     </div>
   );
 }
+
