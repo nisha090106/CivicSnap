@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-JWT_SECRET = os.getenv("JWT_SECRET", "super_secret_jwt_key_civicsnap_2026")
+JWT_SECRET = os.getenv("JWT_SECRET")
 security = HTTPBearer()
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:

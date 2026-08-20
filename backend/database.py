@@ -5,9 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    DATABASE_URL = os.getenv("DB_URL", "postgresql://postgres:NCK7HMjpePfy6l83@db.spxihllztqedtitwlsdw.supabase.co:5432/postgres")
+DATABASE_URL = os.getenv("DB_URL")
 
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
