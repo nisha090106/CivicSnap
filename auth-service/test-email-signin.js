@@ -4,8 +4,7 @@
  * Tests 2 departments + a bad-password rejection.
  */
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const AUTH_URL = process.env.AUTH_URL || `http://localhost:4000`;
 

@@ -8,15 +8,14 @@
  *
  *   node seed-authority-accounts.js
  *
- * Requires the following env vars (set in root .env or exported in shell):
+ * Requires the following env vars (set in auth-service/.env or exported in shell):
  *   ROAD_TRANSPORT_PASSWORD, GARBAGE_WASTE_PASSWORD, FOOD_DRUG_PASSWORD,
  *   FOREST_DEPT_PASSWORD, MUNICIPAL_PASSWORD, NAGAR_PANCHAYAT_PASSWORD,
  *   GRAM_PANCHAYAT_PASSWORD
  */
 
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-require('dotenv').config(); // fallback to local .env if present
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const { randomBytes, scrypt } = require('node:crypto');
 const { pool } = require('./auth');

@@ -9,8 +9,6 @@ civicsnap/
 ├── frontend/          # Frontend web application
 ├── backend/           # Core API service & database handlers
 ├── auth-service/      # Authentication & Authorization microservice
-├── docker-compose.yml # Docker multi-container setup
-├── .env               # Local environment variables
 ├── .gitignore         # Version control exclusion rules
 └── README.md          # Project documentation & setup instructions
 ```
@@ -18,18 +16,29 @@ civicsnap/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- [Docker](https://www.docker.com/) & Docker Compose
 - [Node.js](https://nodejs.org/) (v18+)
+- Python 3.11+
 
-### Running Locally with Docker
-1. Ensure `.env` is configured for your environment:
+### Running Locally
+1. Install backend dependencies and start the API:
    ```bash
-   cp .env .env.local
+   cd backend
+   python -m pip install -r requirements.txt
+   uvicorn main:app --reload --host 0.0.0.0 --port 5000
    ```
 
-2. Spin up all services using Docker Compose:
+2. In a second terminal, install auth-service dependencies and start it:
    ```bash
-   docker-compose up --build
+   cd auth-service
+   npm install
+   npm start
+   ```
+
+3. In a third terminal, install frontend dependencies and start Vite:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
    ```
 
 ## 🛠 Services Architecture
