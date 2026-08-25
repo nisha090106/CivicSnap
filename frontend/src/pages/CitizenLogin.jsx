@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
-import { Phone, ArrowRight, ShieldCheck, CheckCircle2, Sparkles } from 'lucide-react';
+import { Phone, ArrowRight, ShieldCheck, CheckCircle2, Sparkles, Camera } from 'lucide-react';
 
 export default function CitizenLogin() {
   const { sendOtp, verifyOtp, googleSignIn } = useAuth();
@@ -85,10 +85,10 @@ export default function CitizenLogin() {
     <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between p-4 md:p-8 font-sans selection:bg-pista-300">
 
       {/* Header Branding — DARK GREEN */}
-      <header className="max-w-md mx-auto w-full bg-bottle-900 border border-bottle-800 rounded-2xl p-3 flex items-center justify-between shadow-md text-white">
+      <header className="max-w-md mx-auto w-full bg-bottle-900 border border-bottle-800 rounded-md p-3 flex items-center justify-between shadow-md text-white">
         <div className="flex items-center space-x-2">
           <div className="w-10 h-10 rounded-xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-xl shadow-inner">
-            📸
+            <Camera className="w-6 h-6 text-white" />
           </div>
           <span className="text-2xl font-black tracking-tight text-white">CivicSnap</span>
         </div>
@@ -99,7 +99,7 @@ export default function CitizenLogin() {
 
       {/* Main Login Card */}
       <main className="max-w-md mx-auto w-full my-auto py-8">
-        <div className="bg-pista-100 rounded-3xl p-8 shadow-2xl relative border border-pista-400 space-y-6">
+        <div className="bg-pista-100 rounded-md p-8 shadow-2xl relative border border-pista-400 space-y-6">
 
           <div className="text-center">
             <h1 className="text-3xl font-black text-bottle-900 tracking-tight">Report Civic Issues</h1>
@@ -137,7 +137,7 @@ export default function CitizenLogin() {
               {/* Phone Login Button — DARK BOTTLE GREEN */}
               <button
                 onClick={() => setStep('phone_input')}
-                className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base rounded-2xl transition shadow-lg shadow-bottle-950/30 group cursor-pointer border border-bottle-700"
+                className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base rounded-md transition shadow-lg shadow-bottle-950/30 group cursor-pointer border border-bottle-700"
               >
                 <Phone className="w-5 h-5 text-white" />
                 Continue with Phone Number
@@ -164,7 +164,7 @@ export default function CitizenLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+                className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
               >
                 {loading ? 'Sending OTP...' : 'Send Verification OTP'}
               </button>
@@ -208,7 +208,7 @@ export default function CitizenLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+                className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
               >
                 {loading ? 'Verifying...' : 'Verify OTP & Continue'}
               </button>

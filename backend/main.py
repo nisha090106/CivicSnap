@@ -92,6 +92,8 @@ async def create_report(
     image: UploadFile = File(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
+    department: str = Form(None),
+    description: str = Form(None),
     user: dict = Depends(require_citizen),
     db = Depends(get_db)
 ):
@@ -129,6 +131,8 @@ async def create_report(
         image_url=public_url,
         latitude=latitude,
         longitude=longitude,
+        department=department,
+        description=description,
         status="processing"
     )
     db.add(new_report)

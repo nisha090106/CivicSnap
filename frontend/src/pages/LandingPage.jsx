@@ -3,18 +3,22 @@ import { Link } from 'react-router-dom';
 import AuthModal from '../components/AuthModal';
 import Navbar from '../components/Navbar';
 import IntroLoader from '../components/IntroLoader';
-import { 
-  Camera, 
-  Sparkles, 
-  MapPin, 
-  CheckCircle2, 
-  ArrowRight, 
-  ShieldCheck, 
-  Layers, 
-  Bot, 
-  FileCheck2, 
+import {
+  Camera,
+  Sparkles,
+  MapPin,
+  CheckCircle2,
+  ArrowRight,
+  ShieldCheck,
+  Layers,
+  Bot,
+  FileCheck2,
   Building2,
-  PhoneCall
+  PhoneCall,
+  Milestone,
+  Trash2,
+  Droplet,
+  Lightbulb
 } from 'lucide-react';
 import FAQAccordion from '../components/FAQAccordion';
 
@@ -56,16 +60,16 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-pista-200 text-slate-900 font-sans selection:bg-pista-300">
       <IntroLoader duration={2000} />
-      
+
       <Navbar />
 
       {/* 2. HERO SECTION */}
       <section style={{ minHeight: heroMinHeight }} className="relative px-4 sm:px-8 pt-12 pb-20 max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
+
           {/* Left Column: Headline & CTA */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            
+
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-bottle-900 text-pista-100 rounded-full border border-bottle-700 text-xs font-extrabold shadow-xs">
               <Sparkles className="w-4 h-4 text-pista-300" />
               <span>AI-Powered Municipal Action</span>
@@ -86,7 +90,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
               <button
                 onClick={() => openAuth('signup')}
-                className="w-full sm:w-auto px-8 py-4 lg:px-8 lg:py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base lg:text-base rounded-2xl transition shadow-xl shadow-bottle-950/30 flex items-center justify-center gap-3 cursor-pointer group border border-bottle-700 whitespace-nowrap"
+                className="w-full sm:w-auto px-8 py-4 lg:px-8 lg:py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base lg:text-base rounded-md transition shadow-xl shadow-bottle-950/30 flex items-center justify-center gap-3 cursor-pointer group border border-bottle-700 whitespace-nowrap"
               >
                 <Camera className="w-6 h-6 text-white" />
                 <span>Report an Issue Now</span>
@@ -95,7 +99,7 @@ export default function LandingPage() {
 
               <button
                 onClick={() => openAuth('login', 'authority')}
-                className="w-full sm:w-auto px-6 py-4 lg:px-6 lg:py-4 bg-bottle-900 hover:bg-bottle-800 border border-bottle-700 text-white font-black text-sm lg:text-base rounded-2xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md whitespace-nowrap"
+                className="w-full sm:w-auto px-6 py-4 lg:px-6 lg:py-4 bg-bottle-900 hover:bg-bottle-800 border border-bottle-700 text-white font-black text-sm lg:text-base rounded-md transition flex items-center justify-center gap-2 cursor-pointer shadow-md whitespace-nowrap"
               >
                 <ShieldCheck className="w-5 h-5 text-pista-300" />
                 <span>Municipal Officer Login</span>
@@ -122,8 +126,8 @@ export default function LandingPage() {
 
           {/* Right Column: Visual Feature Showcase Card */}
           <div className="lg:col-span-5">
-            <div className="bg-pista-100 rounded-3xl p-6 sm:p-8 border border-pista-400 shadow-xl space-y-6 relative overflow-hidden">
-              
+            <div className="bg-pista-100 rounded-md p-6 sm:p-8 border border-pista-400 shadow-xl space-y-6 relative overflow-hidden">
+
               <div className="flex items-center justify-between border-b border-pista-300 pb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-bottle-800"></div>
@@ -135,7 +139,7 @@ export default function LandingPage() {
               </div>
 
               {/* Photo Preview Simulation */}
-              <div className="relative rounded-2xl bg-pista-200 border border-pista-400 h-52 overflow-hidden flex flex-col items-center justify-center p-6 text-center space-y-3">
+              <div className="relative rounded-md bg-pista-200 border border-pista-400 h-52 overflow-hidden flex flex-col items-center justify-center p-6 text-center space-y-3">
                 <div className="w-16 h-16 rounded-full bg-bottle-800 text-white flex items-center justify-center shadow-lg">
                   <Camera className="w-8 h-8" />
                 </div>
@@ -171,7 +175,7 @@ export default function LandingPage() {
       {/* 3. HOW IT WORKS SECTION */}
       <section id="how-it-works" className="bg-pista-300/60 border-y border-pista-400 py-16 px-4 sm:px-8">
         <div className="max-w-6xl mx-auto space-y-12">
-          
+
           <div className="text-center space-y-3 max-w-2xl mx-auto">
             <span className="text-xs font-black uppercase tracking-widest text-bottle-800">Simple 4-Step Process</span>
             <h2 className="text-3xl sm:text-4xl font-black text-bottle-900 tracking-tight">How CivicSnap Works</h2>
@@ -179,10 +183,10 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            
+
             {/* Step 1 */}
-            <div className="bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-md space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
+            <div className="bg-pista-100 rounded-md p-6 border border-pista-400 shadow-md space-y-4">
+              <div className="w-12 h-12 rounded-md bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
                 1
               </div>
               <h3 className="font-black text-lg text-bottle-800">Snap Issue Photo</h3>
@@ -192,8 +196,8 @@ export default function LandingPage() {
             </div>
 
             {/* Step 2 */}
-            <div className="bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-md space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
+            <div className="bg-pista-100 rounded-md p-6 border border-pista-400 shadow-md space-y-4">
+              <div className="w-12 h-12 rounded-md bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
                 2
               </div>
               <h3 className="font-black text-lg text-bottle-800">AI Categorizes</h3>
@@ -203,8 +207,8 @@ export default function LandingPage() {
             </div>
 
             {/* Step 3 */}
-            <div className="bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-md space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
+            <div className="bg-pista-100 rounded-md p-6 border border-pista-400 shadow-md space-y-4">
+              <div className="w-12 h-12 rounded-md bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
                 3
               </div>
               <h3 className="font-black text-lg text-bottle-800">Routed to Department</h3>
@@ -214,8 +218,8 @@ export default function LandingPage() {
             </div>
 
             {/* Step 4 */}
-            <div className="bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-md space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
+            <div className="bg-pista-100 rounded-md p-6 border border-pista-400 shadow-md space-y-4">
+              <div className="w-12 h-12 rounded-md bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
                 4
               </div>
               <h3 className="font-black text-lg text-bottle-800">Track Live on Map</h3>
@@ -237,26 +241,26 @@ export default function LandingPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-pista-100 p-6 rounded-2xl border border-pista-400 text-center space-y-2 shadow-xs">
-            <span className="text-3xl">🛣️</span>
+          <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
+            <Milestone className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Roads & Potholes</h4>
             <p className="text-[11px] text-slate-700 font-bold">Road & Transport Dept</p>
           </div>
 
-          <div className="bg-pista-100 p-6 rounded-2xl border border-pista-400 text-center space-y-2 shadow-xs">
-            <span className="text-3xl">🗑️</span>
+          <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
+            <Trash2 className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Garbage & Waste</h4>
             <p className="text-[11px] text-slate-700 font-bold">Waste Management Dept</p>
           </div>
 
-          <div className="bg-pista-100 p-6 rounded-2xl border border-pista-400 text-center space-y-2 shadow-xs">
-            <span className="text-3xl">💧</span>
+          <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
+            <Droplet className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Water Leakage</h4>
             <p className="text-[11px] text-slate-700 font-bold">Water Supply Authority</p>
           </div>
 
-          <div className="bg-pista-100 p-6 rounded-2xl border border-pista-400 text-center space-y-2 shadow-xs">
-            <span className="text-3xl">💡</span>
+          <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
+            <Lightbulb className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Street Lights</h4>
             <p className="text-[11px] text-slate-700 font-bold">Electricity & Wiring</p>
           </div>
@@ -323,7 +327,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-bottle-800 text-white flex items-center justify-center font-bold text-xl">
-              📸
+              <Camera className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-black text-white">CivicSnap</span>
           </div>

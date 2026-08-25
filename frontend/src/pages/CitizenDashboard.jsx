@@ -49,8 +49,8 @@ export default function CitizenDashboard() {
 
         {/* Brand */}
         <div className="flex items-center space-x-3">
-          <div className="w-11 h-11 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-2xl shadow-inner">
-            📸
+          <div className="w-11 h-11 rounded-md bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-2xl shadow-inner">
+            <Camera className="w-6 h-6" />
           </div>
           <div>
             <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
@@ -66,7 +66,7 @@ export default function CitizenDashboard() {
           {/* Notifications Bell Button */}
           <button
             onClick={() => setIsNotifModalOpen(true)}
-            className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-2xl bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition relative cursor-pointer shadow-sm"
+            className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-md bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition relative cursor-pointer shadow-sm"
             aria-label="View notifications"
           >
             <Bell className="w-6 h-6 text-white" />
@@ -76,7 +76,7 @@ export default function CitizenDashboard() {
           {/* User Profile Button */}
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="h-12 min-h-[48px] px-3.5 rounded-2xl bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center gap-2 text-white transition cursor-pointer shadow-sm"
+            className="h-12 min-h-[48px] px-3.5 rounded-md bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center gap-2 text-white transition cursor-pointer shadow-sm"
             aria-label="View profile"
           >
             <div className="w-7 h-7 rounded-full bg-bottle-950 text-pista-300 flex items-center justify-center text-xs font-black shadow-xs">
@@ -95,7 +95,7 @@ export default function CitizenDashboard() {
       <main className="max-w-5xl mx-auto w-full px-4 md:px-8 pt-6 space-y-8">
 
         {/* DOMINANT CORE HERO: Big Central Camera Action */}
-        <section className="bg-pista-100 rounded-3xl p-6 md:p-8 border border-pista-400 relative overflow-hidden shadow-xl">
+        <section className="bg-pista-100 rounded-md p-6 md:p-8 border border-pista-400 relative overflow-hidden shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
 
             <div className="space-y-3 text-center md:text-left max-w-xl">
@@ -117,7 +117,7 @@ export default function CitizenDashboard() {
             {/* DOMINANT CENTRAL CAMERA REPORT BUTTON — DARK BOTTLE GREEN */}
             <button
               onClick={() => setIsReportModalOpen(true)}
-              className="w-full md:w-auto min-h-[64px] px-8 py-5 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-lg rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-bottle-950/40 flex items-center justify-center gap-3 shrink-0 cursor-pointer border border-bottle-700"
+              className="w-full md:w-auto min-h-[64px] px-8 py-5 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-lg rounded-md transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-bottle-950/40 flex items-center justify-center gap-3 shrink-0 cursor-pointer border border-bottle-700"
             >
               <Camera className="w-8 h-8 text-white stroke-[2.5]" />
               <span>SNAP & REPORT ISSUE</span>
@@ -133,9 +133,9 @@ export default function CitizenDashboard() {
           <div className="flex items-center gap-2 border-b border-pista-400 pb-3 overflow-x-auto">
             <button
               onClick={() => setActiveTab('feed')}
-              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${activeTab === 'feed'
-                  ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
-                  : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
+              className={`min-h-[48px] px-5 py-2.5 rounded-md text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${activeTab === 'feed'
+                ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
+                : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
                 }`}
             >
               <FileText className="w-4 h-4 text-white" />
@@ -144,9 +144,9 @@ export default function CitizenDashboard() {
 
             <button
               onClick={() => setActiveTab('map')}
-              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${activeTab === 'map'
-                  ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
-                  : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
+              className={`min-h-[48px] px-5 py-2.5 rounded-md text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${activeTab === 'map'
+                ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
+                : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
                 }`}
             >
               <MapPin className="w-4 h-4 text-white" />
@@ -159,8 +159,8 @@ export default function CitizenDashboard() {
             <div className="space-y-4">
               {reports.length === 0 ? (
                 /* Accessible Empty State */
-                <div className="bg-pista-100 rounded-3xl p-10 md:p-14 border border-pista-400 text-center space-y-4 shadow-md">
-                  <div className="w-16 h-16 rounded-3xl bg-bottle-900 border border-bottle-800 flex items-center justify-center text-pista-300 mx-auto shadow-inner">
+                <div className="bg-pista-100 rounded-md p-10 md:p-14 border border-pista-400 text-center space-y-4 shadow-md">
+                  <div className="w-16 h-16 rounded-md bg-bottle-900 border border-bottle-800 flex items-center justify-center text-pista-300 mx-auto shadow-inner">
                     <FileText className="w-8 h-8 text-pista-300" />
                   </div>
                   <div className="space-y-1.5 max-w-sm mx-auto">
@@ -180,7 +180,7 @@ export default function CitizenDashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {reports.map((report, i) => (
-                    <div key={i} className="bg-pista-100 rounded-2xl p-5 border border-pista-400 space-y-3 shadow-xs">
+                    <div key={i} className="bg-pista-100 rounded-md p-5 border border-pista-400 space-y-3 shadow-xs">
                       <div className="flex justify-between items-start">
                         <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">{report.category || 'Uncategorized'}</span>
                         <span className="text-[10px] px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold">
@@ -221,7 +221,7 @@ export default function CitizenDashboard() {
           {/* Tab 1: My Reports */}
           <button
             onClick={() => setActiveTab('feed')}
-            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${activeTab === 'feed' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
+            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-md transition cursor-pointer ${activeTab === 'feed' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
               }`}
             aria-label="My Reports tab"
           >
@@ -232,7 +232,7 @@ export default function CitizenDashboard() {
           {/* Tab 2: Community Map */}
           <button
             onClick={() => setActiveTab('map')}
-            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${activeTab === 'map' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
+            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-md transition cursor-pointer ${activeTab === 'map' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
               }`}
             aria-label="Community Map tab"
           >
@@ -252,7 +252,7 @@ export default function CitizenDashboard() {
           {/* Tab 3: Notifications */}
           <button
             onClick={() => setIsNotifModalOpen(true)}
-            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl text-pista-300/80 hover:text-white font-bold transition relative cursor-pointer"
+            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-md text-pista-300/80 hover:text-white font-bold transition relative cursor-pointer"
             aria-label="Notifications"
           >
             <Bell className="w-6 h-6" />
@@ -262,7 +262,7 @@ export default function CitizenDashboard() {
           {/* Tab 4: Profile */}
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl text-pista-300/80 hover:text-white font-bold transition cursor-pointer"
+            className="min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-md text-pista-300/80 hover:text-white font-bold transition cursor-pointer"
             aria-label="Profile and Settings"
           >
             <User className="w-6 h-6" />

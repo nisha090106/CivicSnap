@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
-import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck } from 'lucide-react';
+import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck, Camera } from 'lucide-react';
 
 const DEPARTMENTS = [
   'Road & Transport',
@@ -164,11 +164,11 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
 
   return (
     <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans">
-      <div className="bg-pista-100 rounded-3xl border border-pista-400 max-w-md w-full shadow-2xl relative my-auto overflow-hidden">
+      <div className="bg-pista-100 rounded-md border border-pista-400 max-w-md w-full shadow-2xl relative my-auto overflow-hidden">
         <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-xl shadow-inner">
-              📸
+            <div className="w-10 h-10 rounded-md bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-xl shadow-inner">
+              <Camera className="w-6 h-6" />
             </div>
             <div>
               <h3 className="font-black text-xl text-white">
@@ -194,7 +194,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 bg-pista-300/80 p-1.5 rounded-2xl border border-pista-400">
+          <div className="grid grid-cols-2 gap-2 bg-pista-300/80 p-1.5 rounded-md border border-pista-400">
             <button
               type="button"
               onClick={() => setRole('citizen')}
@@ -329,7 +329,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+                className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
               >
                 {loading ? 'Authenticating...' : mode === 'login' ? 'Sign In to Account' : 'Create Account'}
               </button>
@@ -355,7 +355,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
                   >
                     {loading ? 'Sending OTP...' : 'Send Verification OTP'}
                   </button>
@@ -387,7 +387,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
+                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
                   >
                     {loading ? 'Verifying...' : 'Verify & Continue'}
                   </button>

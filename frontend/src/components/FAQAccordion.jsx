@@ -18,7 +18,7 @@ export default function FAQAccordion({ items = [], className = '', id = 'faq' })
 
         <div className="space-y-3">
           {items.map((it, idx) => (
-            <div key={idx} className="bg-pista-100 border border-pista-400 rounded-2xl overflow-hidden">
+            <div key={idx} className="bg-pista-100 border border-pista-400 rounded-md overflow-hidden">
               <button
                 aria-expanded={openIndex === idx}
                 aria-controls={`faq-panel-${idx}`}
