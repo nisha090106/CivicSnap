@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { authClient } from '../lib/auth-client';
+import { GoogleLogin } from '@react-oauth/google';
 import { Phone, ArrowRight, ShieldCheck, CheckCircle2, Sparkles } from 'lucide-react';
 
 export default function CitizenLogin() {
-  const { sendOtp, verifyOtp } = useAuth();
+  const { sendOtp, verifyOtp, googleSignIn } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState('choice');
@@ -58,16 +58,24 @@ export default function CitizenLogin() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSuccess = async (credentialResponse) => {
     setLoading(true);
     setError('');
     try {
-      await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: '/dashboard/citizen',
+      const res = await googleSignIn({
+        id_token: credentialResponse.credential,
+        role: 'citizen',
+        department: null
       });
+      if (res.success) {
+        navigate('/dashboard/citizen');
+      } else {
+        const errorMsg = res.error || 'Google sign-in failed';
+        const detailsText = res.details ? `: ${res.details}` : '';
+        setError(`${errorMsg}${detailsText}`);
+      }
     } catch (err) {
-      setError('Google sign-in failed');
+      setError(`Google sign-in failed: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -109,14 +117,16 @@ export default function CitizenLogin() {
 
               {/* Real Google OAuth Button */}
               <div className="flex justify-center w-full min-h-[44px]">
-                <button
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 text-slate-700 font-bold text-base rounded-2xl transition shadow-sm border border-slate-200 cursor-pointer disabled:opacity-50"
-                >
-                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-                  Continue with Google
-                </button>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google sign-in was closed or failed')}
+                  useOneTap
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="rectangular"
+                  width="100%"
+                />
               </div>
 
               <div className="relative my-4 flex items-center justify-center">

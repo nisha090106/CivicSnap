@@ -101,6 +101,28 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const googleSignIn = async ({ id_token, role, department }) => {
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/google/signin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token, role, department })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("googleSignIn API Error Response:", data);
+        if (data.success === undefined) data.success = false;
+      }
+      if (data.success && data.token) {
+        saveAuthSession(data.token, data.user);
+      }
+      return data;
+    } catch (err) {
+      console.error("googleSignIn Error:", err);
+      return { success: false, error: 'Connection error', details: err.message };
+    }
+  };
+
   const approveAuthority = async () => {
     if (!user) return;
     const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/approve-authority`, {
@@ -130,6 +152,7 @@ export function AuthProvider({ children }) {
       sendOtp,
       verifyOtp,
       emailSignIn,
+      googleSignIn,
       approveAuthority,
       logout
     }}>

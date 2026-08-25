@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { authClient } from '../lib/auth-client';
+import { GoogleLogin } from '@react-oauth/google';
 import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck } from 'lucide-react';
 
 const DEPARTMENTS = [
@@ -15,7 +15,7 @@ const DEPARTMENTS = [
 ];
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
-  const { sendOtp, verifyOtp, emailSignIn } = useAuth();
+  const { sendOtp, verifyOtp, emailSignIn, googleSignIn } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState(initialRole === 'authority' ? 'login' : initialTab);
@@ -138,17 +138,21 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSuccess = async (credentialResponse) => {
     setLoading(true);
     setError('');
     try {
-      const { data, error } = await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: '/dashboard/citizen',
+      const res = await googleSignIn({
+        id_token: credentialResponse.credential,
+        role,
+        department: role === 'authority' ? department : null
       });
-      if (error) {
-        console.error("Google Auth API Error Response:", error);
-        setError(`Google sign-in failed: ${error.details || error.message || 'Unknown error'}`);
+      if (res.success) {
+        redirectAfterAuth(res.user);
+      } else {
+        const errorMsg = res.error || 'Google sign-in failed';
+        const detailsText = res.details ? `: ${res.details}` : '';
+        setError(`${errorMsg}${detailsText}`);
       }
     } catch (err) {
       console.error("Google sign-in exception:", err);
@@ -257,15 +261,16 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
           {role === 'citizen' && (
             <>
               <div className="flex justify-center w-full min-h-[44px]">
-                <button
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 text-slate-700 font-bold text-base rounded-2xl transition shadow-sm border border-slate-200 cursor-pointer disabled:opacity-50"
-                  type="button"
-                >
-                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-                  Continue with Google
-                </button>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google sign-in was closed or failed')}
+                  useOneTap
+                  theme="outline"
+                  size="large"
+                  text="continue_with"
+                  shape="rectangular"
+                  width="100%"
+                />
               </div>
 
               <div className="relative my-4 flex items-center justify-center">

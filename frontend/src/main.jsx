@@ -14,8 +14,12 @@ if (GOOGLE_CLIENT_ID) {
   console.error('[CivicSnap Error] CRITICAL: VITE_GOOGLE_CLIENT_ID is missing or not defined in frontend/.env!');
 }
 
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <App />
+    </GoogleOAuthProvider>
   </React.StrictMode>,
 )
