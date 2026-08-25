@@ -4,13 +4,13 @@ import CommunityMap from '../components/CommunityMap';
 import ReportIssueModal from '../components/ReportIssueModal';
 import NotificationsModal from '../components/NotificationsModal';
 import ProfileModal from '../components/ProfileModal';
-import { 
-  Camera, 
-  MapPin, 
-  Bell, 
-  User, 
-  FileText, 
-  Sparkles, 
+import {
+  Camera,
+  MapPin,
+  Bell,
+  User,
+  FileText,
+  Sparkles,
   CheckCircle2
 } from 'lucide-react';
 
@@ -19,7 +19,7 @@ export default function CitizenDashboard() {
   const [activeTab, setActiveTab] = useState('feed');
   const [reports, setReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
-  
+
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -43,10 +43,10 @@ export default function CitizenDashboard() {
 
   return (
     <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between pb-28 md:pb-12 font-sans selection:bg-pista-300">
-      
+
       {/* 1. TOP HEADER NAVIGATION BAR — DARK BOTTLE GREEN */}
       <header className="sticky top-0 z-[100] bg-bottle-900 border-b border-bottle-800 px-4 md:px-8 py-3.5 flex items-center justify-between shadow-md text-white">
-        
+
         {/* Brand */}
         <div className="flex items-center space-x-3">
           <div className="w-11 h-11 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-2xl shadow-inner">
@@ -62,7 +62,7 @@ export default function CitizenDashboard() {
 
         {/* Top Right Quick Actions — Dark Green Buttons */}
         <div className="flex items-center space-x-2.5">
-          
+
           {/* Notifications Bell Button */}
           <button
             onClick={() => setIsNotifModalOpen(true)}
@@ -93,11 +93,11 @@ export default function CitizenDashboard() {
 
       {/* 2. Main Content Layout */}
       <main className="max-w-5xl mx-auto w-full px-4 md:px-8 pt-6 space-y-8">
-        
+
         {/* DOMINANT CORE HERO: Big Central Camera Action */}
         <section className="bg-pista-100 rounded-3xl p-6 md:p-8 border border-pista-400 relative overflow-hidden shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            
+
             <div className="space-y-3 text-center md:text-left max-w-xl">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-bottle-900 text-pista-100 font-extrabold rounded-full text-xs border border-bottle-800 shadow-xs">
                 <Sparkles className="w-3.5 h-3.5 text-pista-300" />
@@ -128,16 +128,15 @@ export default function CitizenDashboard() {
 
         {/* Tab Navigation Content */}
         <div className="space-y-6">
-          
+
           {/* Section Selector Pills */}
           <div className="flex items-center gap-2 border-b border-pista-400 pb-3 overflow-x-auto">
             <button
               onClick={() => setActiveTab('feed')}
-              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${
-                activeTab === 'feed'
+              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${activeTab === 'feed'
                   ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
                   : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
-              }`}
+                }`}
             >
               <FileText className="w-4 h-4 text-white" />
               <span>My Reports ({reports.length})</span>
@@ -145,11 +144,10 @@ export default function CitizenDashboard() {
 
             <button
               onClick={() => setActiveTab('map')}
-              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${
-                activeTab === 'map'
+              className={`min-h-[48px] px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 transition whitespace-nowrap cursor-pointer ${activeTab === 'map'
                   ? 'bg-bottle-800 text-white shadow-md shadow-bottle-950/30 border border-bottle-700'
                   : 'bg-bottle-900 text-white border border-bottle-800 hover:bg-bottle-800'
-              }`}
+                }`}
             >
               <MapPin className="w-4 h-4 text-white" />
               <span>Community Map</span>
@@ -184,12 +182,17 @@ export default function CitizenDashboard() {
                   {reports.map((report, i) => (
                     <div key={i} className="bg-pista-100 rounded-2xl p-5 border border-pista-400 space-y-3 shadow-xs">
                       <div className="flex justify-between items-start">
-                        <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">{report.category}</span>
+                        <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">{report.category || 'Uncategorized'}</span>
                         <span className="text-[10px] px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold">
                           {report.status || 'Pending'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-800 font-semibold">{report.description}</p>
+                      {report.image_url && (
+                        <div className="w-full h-32 rounded-xl overflow-hidden mt-2">
+                          <img src={report.image_url} alt="Reported issue" className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-800 font-semibold">{report.description || 'Processing details...'}</p>
                     </div>
                   ))}
                 </div>
@@ -209,18 +212,17 @@ export default function CitizenDashboard() {
       </main>
 
       {/* 3. BOTTOM NAVIGATION BAR — DARK BOTTLE GREEN */}
-      <nav 
+      <nav
         className="fixed bottom-0 left-0 right-0 z-[2000] bg-bottle-900 border-t border-bottle-800 px-3 py-2 md:py-3 shadow-2xl text-white"
         aria-label="Bottom Navigation"
       >
         <div className="max-w-md mx-auto flex items-center justify-around">
-          
+
           {/* Tab 1: My Reports */}
           <button
             onClick={() => setActiveTab('feed')}
-            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${
-              activeTab === 'feed' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
-            }`}
+            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${activeTab === 'feed' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
+              }`}
             aria-label="My Reports tab"
           >
             <FileText className="w-6 h-6" />
@@ -230,9 +232,8 @@ export default function CitizenDashboard() {
           {/* Tab 2: Community Map */}
           <button
             onClick={() => setActiveTab('map')}
-            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${
-              activeTab === 'map' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
-            }`}
+            className={`min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 rounded-2xl transition cursor-pointer ${activeTab === 'map' ? 'text-white font-black bg-bottle-800/80 px-3 py-1' : 'text-pista-300/80 hover:text-white font-bold'
+              }`}
             aria-label="Community Map tab"
           >
             <MapPin className="w-6 h-6" />

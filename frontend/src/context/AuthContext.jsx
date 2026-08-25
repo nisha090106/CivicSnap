@@ -38,51 +38,67 @@ export function AuthProvider({ children }) {
   };
 
   const sendOtp = async (phoneNumber) => {
-    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/send-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber })
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("sendOtp API Error Response:", data);
+        if (data.success === undefined) data.success = false;
+      }
+      return data;
+    } catch (err) {
+      console.error("sendOtp Error:", err);
+      return { success: false, error: 'Connection error', details: err.message };
+    }
   };
 
   const verifyOtp = async ({ phoneNumber, code, role, department, name }) => {
-    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/verify-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber, code, role, department, name })
-    });
-    const data = await res.json();
-    if (data.success && data.token) {
-      saveAuthSession(data.token, data.user);
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, code, role, department, name })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("verifyOtp API Error Response:", data);
+        if (data.success === undefined) data.success = false;
+      }
+      if (data.success && data.token) {
+        saveAuthSession(data.token, data.user);
+      }
+      return data;
+    } catch (err) {
+      console.error("verifyOtp Error:", err);
+      return { success: false, error: 'Connection error', details: err.message };
     }
-    return data;
   };
 
-  const googleSignIn = async ({ idToken, role, department }) => {
-    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/google/signin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_token: idToken, role, department })
-    });
-    const data = await res.json();
-    if (data.success && data.token) {
-      saveAuthSession(data.token, data.user);
-    }
-    return data;
-  };
 
   const emailSignIn = async ({ email, password }) => {
-    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/sign-in/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (data.success && data.token) {
-      saveAuthSession(data.token, data.user);
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/sign-in/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("emailSignIn API Error Response:", data);
+        if (data.success === undefined) data.success = false;
+      }
+      if (data.success && data.token) {
+        saveAuthSession(data.token, data.user);
+      }
+      return data;
+    } catch (err) {
+      console.error("emailSignIn Error:", err);
+      return { success: false, error: 'Connection error', details: err.message };
     }
-    return data;
   };
 
   const approveAuthority = async () => {
@@ -113,7 +129,6 @@ export function AuthProvider({ children }) {
       loading,
       sendOtp,
       verifyOtp,
-      googleSignIn,
       emailSignIn,
       approveAuthority,
       logout

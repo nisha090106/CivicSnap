@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { GoogleLogin } from '@react-oauth/google';
+import { authClient } from '../lib/auth-client';
 import { Phone, ArrowRight, ShieldCheck, CheckCircle2, Sparkles } from 'lucide-react';
 
 export default function CitizenLogin() {
-  const { sendOtp, verifyOtp, googleSignIn } = useAuth();
+  const { sendOtp, verifyOtp } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState('choice');
@@ -58,23 +58,14 @@ export default function CitizenLogin() {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    if (!credentialResponse.credential) {
-      setError('Google Sign-In failed');
-      return;
-    }
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await googleSignIn({
-        idToken: credentialResponse.credential,
-        role: 'citizen'
+      await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: '/dashboard/citizen',
       });
-      if (res.success) {
-        navigate('/dashboard/citizen');
-      } else {
-        setError(res.error || 'Google authentication failed');
-      }
     } catch (err) {
       setError('Google sign-in failed');
     } finally {
@@ -84,7 +75,7 @@ export default function CitizenLogin() {
 
   return (
     <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between p-4 md:p-8 font-sans selection:bg-pista-300">
-      
+
       {/* Header Branding — DARK GREEN */}
       <header className="max-w-md mx-auto w-full bg-bottle-900 border border-bottle-800 rounded-2xl p-3 flex items-center justify-between shadow-md text-white">
         <div className="flex items-center space-x-2">
@@ -101,7 +92,7 @@ export default function CitizenLogin() {
       {/* Main Login Card */}
       <main className="max-w-md mx-auto w-full my-auto py-8">
         <div className="bg-pista-100 rounded-3xl p-8 shadow-2xl relative border border-pista-400 space-y-6">
-          
+
           <div className="text-center">
             <h1 className="text-3xl font-black text-bottle-900 tracking-tight">Report Civic Issues</h1>
             <p className="text-slate-800 text-sm mt-2 font-semibold">Sign in to report potholes, garbage, water leaks, and streetlight failures.</p>
@@ -115,17 +106,17 @@ export default function CitizenLogin() {
 
           {step === 'choice' && (
             <div className="space-y-4">
-              
+
               {/* Real Google OAuth Button */}
               <div className="flex justify-center w-full min-h-[44px]">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google Sign-In was cancelled or failed')}
-                  size="large"
-                  width="340"
-                  text="continue_with"
-                  shape="pill"
-                />
+                <button
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 text-slate-700 font-bold text-base rounded-2xl transition shadow-sm border border-slate-200 cursor-pointer disabled:opacity-50"
+                >
+                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                  Continue with Google
+                </button>
               </div>
 
               <div className="relative my-4 flex items-center justify-center">
@@ -180,7 +171,7 @@ export default function CitizenLogin() {
 
           {step === 'otp_input' && (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
-              
+
               {/* Developer Helper Banner */}
               {generatedOtp && (
                 <div className="p-3 bg-pista-300 border border-pista-400 rounded-xl text-xs text-bottle-800 text-center font-bold flex items-center justify-center gap-2">

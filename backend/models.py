@@ -13,7 +13,7 @@ class Report(Base):
         default=uuid.uuid4,
         server_default=text("gen_random_uuid()")
     )
-    citizen_id = Column(UUID(as_uuid=True), nullable=True)
+    citizen_id = Column(String(100), nullable=True)
     image_url = Column(Text, nullable=True)
     category = Column(String(100), nullable=True)
     latitude = Column(Float, nullable=True)

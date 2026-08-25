@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { GoogleLogin } from '@react-oauth/google';
+import { authClient } from '../lib/auth-client';
 import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck } from 'lucide-react';
 
 const DEPARTMENTS = [
@@ -15,7 +15,7 @@ const DEPARTMENTS = [
 ];
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
-  const { sendOtp, verifyOtp, googleSignIn, emailSignIn } = useAuth();
+  const { sendOtp, verifyOtp, emailSignIn } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState(initialRole === 'authority' ? 'login' : initialTab);
@@ -70,10 +70,13 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
       if (res.success) {
         redirectAfterAuth(res.user);
       } else {
-        setError(res.error || 'Sign-in failed');
+        const errorMsg = res.error || 'Sign-in failed';
+        const detailsText = res.details ? `: ${res.details}` : '';
+        setError(`${errorMsg}${detailsText}`);
       }
     } catch (err) {
-      setError('Connection error. Please try again.');
+      console.error("Email auth exception:", err);
+      setError(`Connection error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -92,10 +95,13 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
         setGeneratedOtp(res.otpCode);
         setOtpStep('verify');
       } else {
-        setError(res.error || 'Failed to send OTP');
+        const errorMsg = res.error || 'Failed to send OTP';
+        const detailsText = res.details ? `: ${res.details}` : '';
+        setError(`${errorMsg}${detailsText}`);
       }
     } catch (err) {
-      setError('Connection error. Auth Service offline.');
+      console.error("sendOtp exception:", err);
+      setError(`Connection error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -120,38 +126,33 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
       if (res.success) {
         redirectAfterAuth(res.user);
       } else {
-        setError(res.error || 'Invalid OTP code');
+        const errorMsg = res.error || 'Invalid OTP code';
+        const detailsText = res.details ? `: ${res.details}` : '';
+        setError(`${errorMsg}${detailsText}`);
       }
     } catch (err) {
-      setError('OTP Verification failed.');
+      console.error("verifyOtp exception:", err);
+      setError(`OTP Verification failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    if (!credentialResponse?.credential) {
-      setError('Google Sign-In failed: No credential token received');
-      return;
-    }
-
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
-
     try {
-      const res = await googleSignIn({
-        idToken: credentialResponse.credential,
-        role,
-        department: role === 'authority' ? department : null
+      const { data, error } = await authClient.signIn.social({
+        provider: 'google',
+        callbackURL: '/dashboard/citizen',
       });
-
-      if (res.success) {
-        redirectAfterAuth(res.user);
-      } else {
-        setError(res.error || 'Google Authentication failed');
+      if (error) {
+        console.error("Google Auth API Error Response:", error);
+        setError(`Google sign-in failed: ${error.details || error.message || 'Unknown error'}`);
       }
     } catch (err) {
-      setError('Google Sign-in failed');
+      console.error("Google sign-in exception:", err);
+      setError(`Google sign-in failed: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -256,14 +257,15 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
           {role === 'citizen' && (
             <>
               <div className="flex justify-center w-full min-h-[44px]">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google Sign-In was cancelled or failed')}
-                  size="large"
-                  width="320"
-                  text="continue_with"
-                  shape="pill"
-                />
+                <button
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-white hover:bg-slate-50 text-slate-700 font-bold text-base rounded-2xl transition shadow-sm border border-slate-200 cursor-pointer disabled:opacity-50"
+                  type="button"
+                >
+                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                  Continue with Google
+                </button>
               </div>
 
               <div className="relative my-4 flex items-center justify-center">

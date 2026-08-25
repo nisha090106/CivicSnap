@@ -5,8 +5,7 @@
  */
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
-
-const AUTH_URL = process.env.AUTH_URL || `http://localhost:4000`;
+const AUTH_URL = process.env.AUTH_URL || `http://127.0.0.1:4000`;
 
 async function post(url, body) {
   const res = await fetch(url, {
