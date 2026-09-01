@@ -6,20 +6,9 @@ from pydantic import BaseModel
 
 from fastapi import FastAPI, HTTPException, status, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
-from botocore.config import Config
-
-from database import engine, Base, check_db_connection, get_db
-from sqlalchemy.orm import Session
-from sqlalchemy import cast, String
-from auth import get_current_user, get_optional_user, require_citizen, require_authority
+from database import engine, Base, check_db_connection
+from auth import get_current_user, require_citizen, require_authority
 import models
-
-from services.storage_service import save_report_image, calculate_ttl_expiration, cleanup_expired_storage, get_presigned_image_url
-from services.multimodal_service import analyze_and_generate_soap_transcript
-from services.report_generator_service import generate_llm_complaint_report
-from services.email_service import draft_official_email, anti_hallucination_critic, dispatch_email_worker
 
 # Initialize database schema
 try:
@@ -36,11 +25,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Mount static uploads directory for serving uploaded evidence photos
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
@@ -251,46 +243,14 @@ def submit_civic_report(
 
 # 2. CITIZEN REPORTS FEED: GET /api/reports/citizen
 @app.get("/api/reports/citizen")
-def get_citizen_reports(
-    db: Session = Depends(get_db),
-    user: Optional[dict] = Depends(get_optional_user)
-):
-    try:
-        query = db.query(models.Report)
-        if user and user.get("id"):
-            query = query.filter(models.Report.citizen_id == user.get("id"))
-        
-        reports = query.order_by(models.Report.created_at.desc()).all()
-        
-        return {
-            "role": "citizen",
-            "count": len(reports),
-            "reports": [
-                {
-                    "id": str(r.report_id),
-                    "report_id": str(r.report_id),
-                    "category": r.category,
-                    "department": r.department,
-                    "description": r.description,
-                    "status": r.status or "Pending",
-                    "latitude": r.latitude,
-                    "longitude": r.longitude,
-                    "image_url": get_presigned_image_url(r.image_url),
-                    "city_name": r.city_name,
-                    "soap_transcript": r.soap_transcript,
-                    "complaint_report": r.complaint_report,
-                    "critic_verdict": r.critic_verdict,
-                    "created_at": r.created_at.isoformat() if r.created_at else None,
-                    "vote_count": r.vote_count or 0
-                }
-                for r in reports
-            ]
-        }
-    except Exception as e:
-        print(f"[Citizen Reports Error]: {e}")
-        return {"role": "citizen", "count": 0, "reports": []}
+def get_citizen_reports(user: dict = Depends(require_citizen)):
+    """Citizen-only protected endpoint"""
+    return {
+        "role": "citizen",
+        "user_id": user.get("id"),
+        "reports": []
+    }
 
-# 3. AUTHORITY DEPARTMENT FEED: GET /api/reports/authority
 @app.get("/api/reports/authority")
 def get_authority_reports(
     db: Session = Depends(get_db),

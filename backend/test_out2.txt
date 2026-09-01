@@ -1,0 +1,29 @@
+﻿Running classification tests with Mocked HF API to avoid network/DNS issues...
+
+Testing classification for: pothole.png
+--------------------------------------------------
+Success! Result: {'category': 'pothole', 'department': 'Road & Transport', 'status': 'classified'}
+
+Testing classification for: garbage.png
+--------------------------------------------------
+Success! Result: {'category': 'garbage', 'department': 'Garbage & Waste Management', 'status': 'classified'}
+
+Testing classification for: water.png
+--------------------------------------------------
+Success! Result: {'category': 'water', 'department': 'Municipal Corporation', 'status': 'classified'}
+
+Testing classification for: electricity.png
+--------------------------------------------------
+Success! Result: {'category': 'electricity', 'department': 'Municipal Corporation', 'status': 'classified'}
+
+Testing classification for: food.png
+--------------------------------------------------
+Success! Result: {'category': 'food_hygiene', 'department': 'Food & Drug Authority', 'status': 'classified'}
+
+Testing classification for: forest.png
+--------------------------------------------------
+Success! Result: {'category': 'forest_damage', 'department': 'Forest Department', 'status': 'classified'}
+
+Testing classification for: cat.png
+--------------------------------------------------
+Success! Result: {'category': None, 'department': None, 'status': 'needs_manual_review'}

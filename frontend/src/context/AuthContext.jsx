@@ -38,12 +38,22 @@ export function AuthProvider({ children }) {
   };
 
   const sendOtp = async (phoneNumber) => {
-    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/send-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber })
-    });
-    return res.json();
+    try {
+      const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("sendOtp API Error Response:", data);
+        if (data.success === undefined) data.success = false;
+      }
+      return data;
+    } catch (err) {
+      console.error("sendOtp Error:", err);
+      return { success: false, error: 'Connection error', details: err.message };
+    }
   };
 
   const verifyOtp = async ({ phoneNumber, code, role, department, name }) => {
@@ -126,6 +136,7 @@ export function AuthProvider({ children }) {
       loading,
       sendOtp,
       verifyOtp,
+      emailSignIn,
       googleSignIn,
       emailSignIn,
       emailSignUp,

@@ -18,7 +18,11 @@ const PORT = process.env.AUTH_SERVICE_PORT || 4000;
 // Better Auth endpoints should be used instead. This file intentionally
 // avoids hand-rolled scrypt comparison logic.
 
-app.use(cors());
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+app.use(cors({
+  origin: frontendUrl,
+  credentials: true
+}));
 app.use(express.json());
 
 // In-memory OTP storage for rapid verification

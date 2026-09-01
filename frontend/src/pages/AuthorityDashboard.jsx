@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { 
-  ShieldCheck, 
-  LogOut, 
-  Building2, 
-  CheckCircle2, 
-  AlertTriangle, 
-  FileText, 
-  MapPin, 
-  Clock, 
+import {
+  ShieldCheck,
+  LogOut,
+  Building2,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  MapPin,
+  Clock,
   Sparkles,
   RefreshCw,
   ExternalLink
@@ -98,7 +98,7 @@ export default function AuthorityDashboard() {
   return (
     <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between p-4 md:p-10 font-sans selection:bg-pista-300 overflow-y-auto w-full">
       <div className="max-w-6xl mx-auto w-full space-y-8">
-        
+
         {/* Top Header Bar — DARK BOTTLE GREEN */}
         <header className="bg-bottle-900 border border-bottle-800 rounded-3xl p-4 md:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md text-white">
           <div className="flex items-center space-x-3 text-center sm:text-left">
@@ -136,8 +136,8 @@ export default function AuthorityDashboard() {
 
         {/* Department Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          <div className="bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-md">
+
+          <div className="bg-pista-100 rounded-md p-6 border border-pista-400 shadow-md">
             <div className="flex justify-between items-start mb-3">
               <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Assigned Reports</span>
               <FileText className="w-5 h-5 text-bottle-800" />
@@ -146,7 +146,7 @@ export default function AuthorityDashboard() {
             <p className="text-xs text-slate-600 mt-2 font-bold">Total issues assigned to {activeDepartment}</p>
           </div>
 
-          <div className="bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-md">
+          <div className="bg-pista-100 rounded-md p-6 border border-pista-400 shadow-md">
             <div className="flex justify-between items-start mb-3">
               <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Pending Action</span>
               <AlertTriangle className="w-5 h-5 text-amber-700" />
@@ -155,7 +155,7 @@ export default function AuthorityDashboard() {
             <p className="text-xs text-slate-600 mt-2 font-bold">Awaiting officer field dispatch</p>
           </div>
 
-          <div className="bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-md">
+          <div className="bg-pista-100 rounded-md p-6 border border-pista-400 shadow-md">
             <div className="flex justify-between items-start mb-3">
               <span className="text-xs font-black text-slate-700 uppercase tracking-wider">Resolved Issues</span>
               <CheckCircle2 className="w-5 h-5 text-bottle-800" />
@@ -168,7 +168,7 @@ export default function AuthorityDashboard() {
 
         {/* Main Queue & Report Inspector */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* Left Column: Report List */}
           <div className="lg:col-span-7 bg-pista-100 rounded-3xl p-6 border border-pista-400 shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-4 border-b border-pista-300">
@@ -195,17 +195,15 @@ export default function AuthorityDashboard() {
                   <div
                     key={report.id}
                     onClick={() => setSelectedReport(report)}
-                    className={`p-4 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-4 ${
-                      selectedReport?.id === report.id
+                    className={`p-4 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-4 ${selectedReport?.id === report.id
                         ? 'bg-bottle-900 text-white border-bottle-800 shadow-md'
                         : 'bg-white border-pista-400 hover:bg-pista-200 text-slate-900'
-                    }`}
+                      }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
-                          selectedReport?.id === report.id ? 'bg-bottle-800 text-pista-200' : 'bg-pista-300 text-bottle-900'
-                        }`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${selectedReport?.id === report.id ? 'bg-bottle-800 text-pista-200' : 'bg-pista-300 text-bottle-900'
+                          }`}>
                           {report.category}
                         </span>
                         <span className="text-[10px] font-bold opacity-80 flex items-center gap-1">
@@ -216,13 +214,12 @@ export default function AuthorityDashboard() {
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className={`text-[10px] px-2.5 py-1 rounded-md font-extrabold ${
-                        report.status === 'Resolved'
+                      <span className={`text-[10px] px-2.5 py-1 rounded-md font-extrabold ${report.status === 'Resolved'
                           ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                           : report.status === 'In Progress'
-                          ? 'bg-blue-100 text-blue-900 border border-blue-300'
-                          : 'bg-amber-100 text-amber-900 border border-amber-300'
-                      }`}>
+                            ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                            : 'bg-amber-100 text-amber-900 border border-amber-300'
+                        }`}>
                         {report.status || 'Pending'}
                       </span>
                     </div>
@@ -242,14 +239,14 @@ export default function AuthorityDashboard() {
 
             {selectedReport ? (
               <div className="space-y-4 text-xs font-semibold">
-                
+
                 {/* Uploaded Evidence Image */}
                 {selectedReport.image_url && (
                   <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-900 border border-pista-400 shadow-md">
-                    <img 
-                      src={getFullImageUrl(selectedReport.image_url, BACKEND_URL)} 
-                      alt="Evidence" 
-                      className="w-full h-full object-cover" 
+                    <img
+                      src={getFullImageUrl(selectedReport.image_url, BACKEND_URL)}
+                      alt="Evidence"
+                      className="w-full h-full object-cover"
                       onError={(e) => {
                         e.target.onerror = null;
                         const reportId = selectedReport.id || selectedReport.report_id;

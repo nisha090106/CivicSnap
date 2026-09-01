@@ -50,10 +50,10 @@ export default function AuthorityLogin() {
     <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between p-4 md:p-8 font-sans selection:bg-pista-300">
 
       {/* Header — DARK GREEN */}
-      <header className="max-w-md mx-auto w-full bg-bottle-900 border border-bottle-800 rounded-2xl p-3 flex items-center justify-between shadow-md text-white">
+      <header className="max-w-md mx-auto w-full bg-bottle-900 border border-bottle-800 rounded-md p-3 flex items-center justify-between shadow-md text-white">
         <div className="flex items-center space-x-2">
           <div className="w-10 h-10 rounded-xl bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-xl shadow-inner">
-            🏛️
+            <Building2 className="w-5 h-5 text-white" />
           </div>
           <span className="text-2xl font-black tracking-tight text-white">CivicSnap</span>
         </div>
@@ -64,7 +64,7 @@ export default function AuthorityLogin() {
 
       {/* Main Login Card */}
       <main className="max-w-md mx-auto w-full my-auto py-8">
-        <div className="bg-pista-100 rounded-3xl p-8 shadow-2xl relative border border-pista-400 space-y-6">
+        <div className="bg-pista-100 rounded-md p-8 shadow-2xl relative border border-pista-400 space-y-6">
 
           <div className="text-center">
             <h1 className="text-2xl font-black text-bottle-900 tracking-tight">Official Authority Sign-In</h1>
@@ -128,7 +128,7 @@ export default function AuthorityLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700 flex items-center justify-center gap-2 font-bold"
+              className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700 flex items-center justify-center gap-2 font-bold"
             >
               {loading ? 'Signing In...' : 'Sign In to Account'}
               <ArrowRight className="w-4 h-4 text-white" />

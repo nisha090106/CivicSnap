@@ -6,12 +6,12 @@ export default function NotificationsModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 font-sans">
-      <div className="bg-pista-100 max-w-md w-full rounded-3xl border border-pista-400 shadow-2xl relative my-auto overflow-hidden">
+      <div className="bg-pista-100 max-w-md w-full rounded-md border border-pista-400 shadow-2xl relative my-auto overflow-hidden">
         
         {/* Header — DARK BOTTLE GREEN */}
         <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center text-white">
+            <div className="w-10 h-10 rounded-md bg-bottle-800 border border-bottle-700 flex items-center justify-center text-white">
               <Bell className="w-6 h-6" />
             </div>
             <div>
@@ -30,7 +30,7 @@ export default function NotificationsModal({ isOpen, onClose }) {
 
         {/* Empty Notifications State */}
         <div className="p-8 py-12 text-center space-y-3">
-          <div className="w-14 h-14 rounded-2xl bg-bottle-900 border border-bottle-800 flex items-center justify-center text-pista-300 mx-auto shadow-inner">
+          <div className="w-14 h-14 rounded-md bg-bottle-900 border border-bottle-800 flex items-center justify-center text-pista-300 mx-auto shadow-inner">
             <Bell className="w-7 h-7" />
           </div>
           <h4 className="font-black text-bottle-900 text-base">No New Notifications</h4>

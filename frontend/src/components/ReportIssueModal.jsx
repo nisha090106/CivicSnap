@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { 
-  Camera, 
-  X, 
-  MapPin, 
-  CheckCircle2, 
-  AlertCircle, 
-  Sparkles, 
-  Image as ImageIcon, 
-  Upload, 
-  RefreshCw, 
+import {
+  Camera,
+  X,
+  MapPin,
+  CheckCircle2,
+  AlertCircle,
+  Sparkles,
+  Image as ImageIcon,
+  Upload,
+  RefreshCw,
   SwitchCamera,
   FolderOpen,
   FileText,
@@ -42,7 +42,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
   const [description, setDescription] = useState('');
   const [discloseIdentity, setDiscloseIdentity] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
-  
+
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState(null);
 
@@ -316,12 +316,12 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans">
-      <div className="bg-pista-100 max-w-lg w-full rounded-3xl border border-pista-400 shadow-2xl relative my-auto overflow-hidden">
-        
-        {/* Header — DARK BOTTLE GREEN */}
+      <div className="bg-pista-100 max-w-lg w-full rounded-md border border-pista-400 shadow-2xl relative my-auto overflow-hidden">
+
+        {/* Header */}
         <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-bottle-800 border border-bottle-700 flex items-center justify-center text-white">
+            <div className="w-10 h-10 rounded-md bg-bottle-800 border border-bottle-700 flex items-center justify-center text-white">
               <Camera className="w-6 h-6" />
             </div>
             <div>
@@ -339,7 +339,6 @@ export default function ReportIssueModal({ isOpen, onClose }) {
         </div>
 
         <div className="p-6 space-y-6">
-
           {submitted ? (
             <div className="py-8 text-center space-y-4">
               <div className="w-16 h-16 rounded-full bg-bottle-800 border border-bottle-700 text-white flex items-center justify-center mx-auto shadow-xl">
@@ -369,7 +368,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              
+
               {/* Photo Source Options Header */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -383,22 +382,20 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                       <button
                         type="button"
                         onClick={() => handleSourceTabChange('camera')}
-                        className={`px-3 py-1 rounded-lg text-[11px] font-black transition flex items-center gap-1 cursor-pointer ${
-                          photoSource === 'camera'
+                        className={`px-3 py-1 rounded-lg text-[11px] font-black transition flex items-center gap-1 cursor-pointer ${photoSource === 'camera'
                             ? 'bg-bottle-800 text-white shadow-xs'
                             : 'text-bottle-800 hover:bg-pista-200'
-                        }`}
+                          }`}
                       >
                         <Camera className="w-3.5 h-3.5" /> Camera
                       </button>
                       <button
                         type="button"
                         onClick={() => handleSourceTabChange('upload')}
-                        className={`px-3 py-1 rounded-lg text-[11px] font-black transition flex items-center gap-1 cursor-pointer ${
-                          photoSource === 'upload'
+                        className={`px-3 py-1 rounded-lg text-[11px] font-black transition flex items-center gap-1 cursor-pointer ${photoSource === 'upload'
                             ? 'bg-bottle-800 text-white shadow-xs'
                             : 'text-bottle-800 hover:bg-pista-200'
-                        }`}
+                          }`}
                       >
                         <Upload className="w-3.5 h-3.5" /> Upload File
                       </button>
@@ -409,12 +406,12 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                 {/* IMAGE CAPTURED / UPLOADED PREVIEW */}
                 {imageSrc ? (
                   <div className="relative w-full h-56 rounded-2xl bg-slate-900 border-2 border-bottle-700 overflow-hidden shadow-inner flex items-center justify-center">
-                    <img 
-                      src={imageSrc} 
-                      alt="Captured evidence" 
-                      className="w-full h-full object-cover" 
+                    <img
+                      src={imageSrc}
+                      alt="Captured evidence"
+                      className="w-full h-full object-cover"
                     />
-                    
+
                     {/* Badge Overlay */}
                     <div className="absolute bottom-2 left-2 right-2 bg-bottle-900/90 backdrop-blur-md px-3 py-2 rounded-xl text-white border border-bottle-700 flex items-center justify-between text-xs font-bold">
                       <span className="flex items-center gap-1.5 text-pista-300 text-[11px]">
@@ -434,7 +431,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                 ) : photoSource === 'camera' ? (
                   /* LIVE CAMERA VIEWFINDER */
                   <div className="relative w-full h-60 rounded-2xl bg-slate-950 border-2 border-pista-400 overflow-hidden flex items-center justify-center shadow-inner">
-                    
+
                     {cameraError ? (
                       /* Camera Error Fallback View */
                       <div className="p-6 text-center space-y-3">
@@ -531,11 +528,10 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                           key={cat.id}
                           type="button"
                           onClick={() => setSelectedCategory(cat.id)}
-                          className={`min-h-[52px] px-3 py-3 rounded-2xl border text-left font-semibold text-xs flex items-center gap-2.5 transition cursor-pointer ${
-                            selectedCategory === cat.id
+                          className={`min-h-[52px] px-3 py-3 rounded-2xl border text-left font-semibold text-xs flex items-center gap-2.5 transition cursor-pointer ${selectedCategory === cat.id
                               ? 'bg-bottle-800 border-bottle-700 text-white font-black shadow-md shadow-bottle-950/30'
                               : 'bg-white border-pista-400 text-bottle-800 hover:bg-pista-200'
-                          }`}
+                            }`}
                         >
                           <span className="text-lg">{cat.icon}</span>
                           <span>{cat.label}</span>
@@ -606,11 +602,10 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                           key={lang.id}
                           type="button"
                           onClick={() => handleGeneratePreview(lang.id)}
-                          className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer border ${
-                            selectedLanguage === lang.id
+                          className={`px-3 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer border ${selectedLanguage === lang.id
                               ? 'bg-bottle-900 text-white border-bottle-800 shadow-md'
                               : 'bg-white text-bottle-900 border-pista-400 hover:bg-pista-200'
-                          }`}
+                            }`}
                         >
                           <span>{lang.flag}</span>
                           <span>{lang.label}</span>
@@ -660,7 +655,6 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
             </form>
           )}
-
         </div>
       </div>
     </div>

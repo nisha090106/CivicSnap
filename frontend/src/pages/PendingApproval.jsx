@@ -27,9 +27,9 @@ export default function PendingApproval() {
   return (
     <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between p-6 md:p-12 font-sans selection:bg-pista-300 overflow-y-auto w-full">
       <div className="max-w-xl mx-auto w-full my-auto">
-        <div className="bg-pista-100 rounded-3xl p-8 border border-pista-400 text-center space-y-6 shadow-2xl relative overflow-hidden">
+        <div className="bg-pista-100 rounded-md p-8 border border-pista-400 text-center space-y-6 shadow-2xl relative overflow-hidden">
           
-          <div className="w-16 h-16 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 mx-auto shadow-md">
+          <div className="w-16 h-16 rounded-md bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 mx-auto shadow-md">
             <Clock className="w-8 h-8 animate-pulse text-amber-800" />
           </div>
 
@@ -43,7 +43,7 @@ export default function PendingApproval() {
             </p>
           </div>
 
-          <div className="p-4 bg-white rounded-2xl border border-pista-400 text-xs text-slate-800 text-left space-y-1 font-mono">
+          <div className="p-4 bg-white rounded-md border border-pista-400 text-xs text-slate-800 text-left space-y-1 font-mono">
             <div><span className="text-bottle-800 font-black">Official ID:</span> {user?.id}</div>
             <div><span className="text-bottle-800 font-black">Department:</span> {user?.department || 'Not specified'}</div>
             <div><span className="text-bottle-800 font-black">Approval Status:</span> <span className="text-amber-800 font-bold">Pending Review</span></div>
@@ -54,7 +54,7 @@ export default function PendingApproval() {
             <button
               onClick={handleDevApprove}
               disabled={loading}
-              className="w-full py-3.5 px-6 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-2xl transition shadow-lg shadow-bottle-800/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full py-3.5 px-6 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-md transition shadow-lg shadow-bottle-800/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <Sparkles className="w-4 h-4 text-white" />
               {loading ? 'Approving Account...' : 'Dev Quick-Approve Authority Account'}
