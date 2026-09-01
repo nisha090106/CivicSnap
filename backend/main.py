@@ -2,14 +2,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException, status, Depends, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, status, Depends, UploadFile, File, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from database import engine, Base, check_db_connection, get_db
+from database import engine, Base, check_db_connection, get_db, SessionLocal
+from utils import classify_image_url
 from auth import get_current_user, require_citizen, require_authority
 import models
 import os
 import uuid
+import traceback
 from supabase import create_client, Client
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://spxihllztqedtitwlsdw.supabase.co")
@@ -36,7 +38,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -87,8 +89,41 @@ def get_citizen_reports(user: dict = Depends(require_citizen), db = Depends(get_
         "reports": reports
     }
 
+def run_classification(report_id, image_url: str):
+    print(f"[CLASSIFY] started for report {report_id}")
+    try:
+        db = SessionLocal()
+        try:
+            result = classify_image_url(image_url)
+            report = db.query(models.Report).filter(models.Report.report_id == report_id).first()
+            if report:
+                if result.get("status") == "needs_manual_review":
+                    report.status = "needs_manual_review"
+                    # Leave category and department as they were (or null)
+                else:
+                    report.category = result.get("category")
+                    # If department is already set by user (or we could override it),
+                    # Since we map category -> department, it makes sense to assign the mapped department.
+                    if result.get("department"):
+                        report.department = result.get("department")
+                    report.status = "classified"
+                db.commit()
+        except Exception as e:
+            print(f"Classification failed for report {report_id} mapping explicitly dropped: {e}")
+            db.rollback()
+            report = db.query(models.Report).filter(models.Report.report_id == report_id).first()
+            if report:
+                report.status = "classification_failed"
+                db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[CLASSIFY] CRASHED: {e}")
+        traceback.print_exc()
+
 @app.post("/api/reports")
 async def create_report(
+    background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
@@ -138,6 +173,9 @@ async def create_report(
     db.add(new_report)
     db.commit()
     db.refresh(new_report)
+    
+    background_tasks.add_task(run_classification, new_report.report_id, new_report.image_url)
+    
     return {"message": "Report created", "report": new_report}
 
 @app.get("/api/reports/authority")
