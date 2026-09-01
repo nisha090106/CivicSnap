@@ -25,7 +25,7 @@ export default function PendingApproval() {
   };
 
   return (
-    <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between p-6 md:p-12 font-sans selection:bg-pista-300">
+    <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between p-6 md:p-12 font-sans selection:bg-pista-300 overflow-y-auto w-full">
       <div className="max-w-xl mx-auto w-full my-auto">
         <div className="bg-pista-100 rounded-3xl p-8 border border-pista-400 text-center space-y-6 shadow-2xl relative overflow-hidden">
           

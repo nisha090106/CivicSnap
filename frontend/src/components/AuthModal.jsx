@@ -15,7 +15,7 @@ const DEPARTMENTS = [
 ];
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
-  const { sendOtp, verifyOtp, googleSignIn, emailSignIn } = useAuth();
+  const { sendOtp, verifyOtp, googleSignIn, emailSignIn, emailSignUp } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState(initialRole === 'authority' ? 'login' : initialTab);
@@ -54,23 +54,34 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     if (!email || !password) return setError('Please enter both email and password');
+    if (mode === 'signup' && !name.trim()) return setError('Please enter your full name');
 
     setError('');
     setLoading(true);
 
     try {
-      const res = await emailSignIn({
-        email,
-        password,
-        role,
-        department: role === 'authority' ? department : null,
-        name: name || undefined
-      });
+      let res;
+      if (mode === 'signup') {
+        res = await emailSignUp({
+          email,
+          password,
+          name: name.trim(),
+          role,
+          department: role === 'authority' ? department : null
+        });
+      } else {
+        res = await emailSignIn({
+          email,
+          password,
+          role,
+          department: role === 'authority' ? department : null
+        });
+      }
 
       if (res.success) {
         redirectAfterAuth(res.user);
       } else {
-        setError(res.error || 'Sign-in failed');
+        setError(res.error || (mode === 'signup' ? 'Sign-up failed' : 'Sign-in failed'));
       }
     } catch (err) {
       setError('Connection error. Please try again.');

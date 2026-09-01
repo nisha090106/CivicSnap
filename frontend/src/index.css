@@ -2,9 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
   background-color: #E8F5E1;
   color: #0F172A;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Custom sleek dark green scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #E8F5E1;
+}
+::-webkit-scrollbar-thumb {
+  background: #1B4D3E;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #143A2E;
 }
 
 @layer utilities {

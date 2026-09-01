@@ -7,10 +7,56 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_civicsnap_2026';
 const connectionString = process.env.DATABASE_URL || process.env.DB_URL;
 
-const pool = new Pool({
+let activePool = new Pool({
   connectionString: connectionString,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000
 });
+let sslDisabled = process.env.DB_SSL === 'false';
+
+function switchSslOff() {
+  if (!sslDisabled) {
+    console.warn('[AUTH-DB] PostgreSQL server does not support SSL mode. Switching pool to ssl: false...');
+    sslDisabled = true;
+    activePool.end().catch(() => {});
+    activePool = new Pool({
+      connectionString: connectionString,
+      ssl: false,
+      connectionTimeoutMillis: 10000
+    });
+  }
+}
+
+const pool = {
+  async query(text, params) {
+    try {
+      return await activePool.query(text, params);
+    } catch (err) {
+      if (err.message && err.message.includes('does not support SSL')) {
+        switchSslOff();
+        return await activePool.query(text, params);
+      }
+      throw err;
+    }
+  },
+  async connect() {
+    try {
+      return await activePool.connect();
+    } catch (err) {
+      if (err.message && err.message.includes('does not support SSL')) {
+        switchSslOff();
+        return await activePool.connect();
+      }
+      throw err;
+    }
+  },
+  on(event, handler) {
+    return activePool.on(event, handler);
+  },
+  end() {
+    return activePool.end();
+  }
+};
 
 // Helper: Generate JWT token for a user
 function generateToken(user) {

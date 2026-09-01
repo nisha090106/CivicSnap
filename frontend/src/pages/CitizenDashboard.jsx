@@ -11,14 +11,44 @@ import {
   User, 
   FileText, 
   Sparkles, 
-  CheckCircle2
+  CheckCircle2,
+  ExternalLink,
+  Clock,
+  Building2,
+  X
 } from 'lucide-react';
+
+function getFullImageUrl(url, backendUrl) {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  return `${backendUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function formatReportDate(isoString) {
+  if (!isoString) return 'Just now';
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    return isoString;
+  }
+}
 
 export default function CitizenDashboard() {
   const { user, token, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('feed');
   const [reports, setReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
+  const [selectedDetailReport, setSelectedDetailReport] = useState(null);
   
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
@@ -26,7 +56,7 @@ export default function CitizenDashboard() {
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-  useEffect(() => {
+  const fetchReports = () => {
     if (token) {
       setLoadingReports(true);
       fetch(`${BACKEND_URL}/api/reports/citizen`, {
@@ -39,10 +69,17 @@ export default function CitizenDashboard() {
         .catch(err => console.error(err))
         .finally(() => setLoadingReports(false));
     }
+  };
+
+  useEffect(() => {
+    fetchReports();
+    const handleRefresh = () => fetchReports();
+    window.addEventListener('civicsnap:reportSubmitted', handleRefresh);
+    return () => window.removeEventListener('civicsnap:reportSubmitted', handleRefresh);
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between pb-28 md:pb-12 font-sans selection:bg-pista-300">
+    <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between pb-36 md:pb-20 font-sans selection:bg-pista-300 overflow-y-auto w-full">
       
       {/* 1. TOP HEADER NAVIGATION BAR — DARK BOTTLE GREEN */}
       <header className="sticky top-0 z-[100] bg-bottle-900 border-b border-bottle-800 px-4 md:px-8 py-3.5 flex items-center justify-between shadow-md text-white">
@@ -180,18 +217,91 @@ export default function CitizenDashboard() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {reports.map((report, i) => (
-                    <div key={i} className="bg-pista-100 rounded-2xl p-5 border border-pista-400 space-y-3 shadow-xs">
-                      <div className="flex justify-between items-start">
-                        <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">{report.category}</span>
-                        <span className="text-[10px] px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold">
-                          {report.status || 'Pending'}
-                        </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {reports.map((report, i) => {
+                    const imageUrl = getFullImageUrl(report.image_url, BACKEND_URL);
+                    const mapsUrl = `https://www.google.com/maps?q=${report.latitude || 19.0760},${report.longitude || 72.8777}`;
+                    
+                    return (
+                      <div key={i} className="bg-pista-100 rounded-3xl p-5 border border-pista-400 space-y-4 shadow-md flex flex-col justify-between hover:border-bottle-800 transition">
+                        
+                        <div className="space-y-3">
+                          {/* Card Header: Category & Status */}
+                          <div className="flex items-start justify-between gap-2 border-b border-pista-300 pb-2.5">
+                            <div>
+                              <span className="text-xs font-black text-bottle-800 uppercase tracking-wider block">
+                                {report.category || 'Civic Issue'}
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mt-0.5">
+                                <Building2 className="w-3 h-3 text-bottle-800" /> {report.department || 'Municipal Corporation'}
+                              </span>
+                            </div>
+
+                            <span className={`text-[10px] px-2.5 py-1 rounded-md font-extrabold shrink-0 ${
+                              report.status === 'Resolved'
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                : report.status === 'In Progress'
+                                ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                                : 'bg-amber-100 text-amber-900 border border-amber-300'
+                            }`}>
+                              {report.status || 'Pending'}
+                            </span>
+                          </div>
+
+                          {/* Uploaded Evidence Image */}
+                          {imageUrl && (
+                            <div 
+                              onClick={() => setSelectedDetailReport(report)}
+                              className="relative w-full h-44 rounded-2xl bg-slate-900 border border-pista-400 overflow-hidden cursor-pointer group"
+                            >
+                              <img 
+                                src={imageUrl} 
+                                alt="Report Evidence" 
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  const reportId = report.id || report.report_id;
+                                  e.target.src = reportId ? `${BACKEND_URL}/api/reports/stream-image/${reportId}` : 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop&q=80';
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-bottle-950/20 group-hover:bg-bottle-950/10 transition"></div>
+                              <span className="absolute bottom-2 left-2 px-2.5 py-1 bg-bottle-900/90 text-white text-[10px] font-bold rounded-lg border border-bottle-700 backdrop-blur-md">
+                                📍 {report.city_name || 'Mumbai'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Report Body / Description */}
+                          <div className="space-y-1">
+                            <p className="text-xs text-slate-800 font-semibold leading-relaxed line-clamp-3">
+                              {report.description || 'Reported civic issue requiring municipal attention.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Card Footer: Timestamp & Google Maps Link */}
+                        <div className="pt-3 border-t border-pista-300 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1 shrink-0">
+                            <Clock className="w-3.5 h-3.5 text-bottle-800" />
+                            {formatReportDate(report.created_at)}
+                          </span>
+
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-bottle-900 hover:bg-bottle-800 text-pista-100 font-extrabold text-[11px] rounded-xl border border-bottle-700 transition shadow-xs"
+                            title="Open location in Google Maps"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-pista-300" />
+                            <span>Google Maps</span>
+                            <ExternalLink className="w-3 h-3 text-pista-300" />
+                          </a>
+                        </div>
+
                       </div>
-                      <p className="text-xs text-slate-800 font-semibold">{report.description}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -275,6 +385,96 @@ export default function CitizenDashboard() {
       <ReportIssueModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} />
       <NotificationsModal isOpen={isNotifModalOpen} onClose={() => setIsNotifModalOpen(false)} />
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
+
+      {/* Detailed Report Inspection Modal */}
+      {selectedDetailReport && (
+        <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans">
+          <div className="bg-pista-100 max-w-xl w-full rounded-3xl border border-pista-400 shadow-2xl relative my-auto overflow-hidden">
+            
+            <div className="bg-bottle-900 text-white p-5 border-b border-bottle-800 flex items-center justify-between">
+              <div>
+                <h3 className="font-black text-lg text-white">{selectedDetailReport.category || 'Civic Issue Details'}</h3>
+                <p className="text-xs text-pista-300 font-extrabold flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-pista-300" />
+                  Reported on {formatReportDate(selectedDetailReport.created_at)}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedDetailReport(null)}
+                className="w-9 h-9 rounded-full bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              
+              {/* Evidence Image */}
+              {selectedDetailReport.image_url && (
+                <div className="relative h-56 rounded-2xl bg-slate-950 border border-pista-400 overflow-hidden shadow-inner">
+                  <img
+                    src={getFullImageUrl(selectedDetailReport.image_url, BACKEND_URL)}
+                    alt="Report Evidence"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      const reportId = selectedDetailReport.id || selectedDetailReport.report_id;
+                      e.target.src = reportId ? `${BACKEND_URL}/api/reports/stream-image/${reportId}` : 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop&q=80';
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 px-3 py-1 bg-bottle-900/90 text-pista-200 text-xs font-black rounded-xl border border-bottle-700 backdrop-blur-md">
+                    📍 {selectedDetailReport.city_name || 'Mumbai'}
+                  </div>
+                </div>
+              )}
+
+              {/* Department & Status */}
+              <div className="grid grid-cols-2 gap-3 bg-white p-3.5 rounded-2xl border border-pista-300 text-xs">
+                <div>
+                  <span className="text-[10px] font-black text-bottle-800 uppercase block">Assigned Department</span>
+                  <span className="font-bold text-slate-900">{selectedDetailReport.department || 'Municipal Corporation'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-bottle-800 uppercase block">Current Status</span>
+                  <span className="font-bold text-emerald-800">{selectedDetailReport.status || 'Pending'}</span>
+                </div>
+              </div>
+
+              {/* Report Body / Description */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-black text-bottle-800 uppercase block">Report Body / Description</span>
+                <p className="p-3 bg-white border border-pista-300 rounded-xl text-xs font-semibold text-slate-800 leading-relaxed">
+                  {selectedDetailReport.description || 'Reported civic issue registered via CivicSnap.'}
+                </p>
+              </div>
+
+              {/* SOAP Note Format Transcript */}
+              {selectedDetailReport.soap_transcript && (
+                <div className="space-y-1">
+                  <span className="text-[11px] font-black text-bottle-800 uppercase block">Structured SOAP Note Transcript</span>
+                  <div className="p-3 bg-white border border-pista-300 rounded-xl font-mono text-[11px] text-slate-800 whitespace-pre-wrap shadow-inner max-h-40 overflow-y-auto">
+                    {selectedDetailReport.soap_transcript}
+                  </div>
+                </div>
+              )}
+
+              {/* Direct Google Maps Action Button */}
+              <a
+                href={`https://www.google.com/maps?q=${selectedDetailReport.latitude || 19.0760},${selectedDetailReport.longitude || 72.8777}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3.5 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-xs rounded-2xl transition shadow-md flex items-center justify-center gap-2 border border-bottle-700"
+              >
+                <MapPin className="w-4 h-4 text-pista-300" />
+                <span>Open Location in Google Maps ↗</span>
+                <ExternalLink className="w-3.5 h-3.5 text-pista-300" />
+              </a>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

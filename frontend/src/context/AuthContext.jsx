@@ -85,6 +85,19 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const emailSignUp = async ({ email, password, name, role, department }) => {
+    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/sign-up/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name, role, department })
+    });
+    const data = await res.json();
+    if (data.success && data.token) {
+      saveAuthSession(data.token, data.user);
+    }
+    return data;
+  };
+
   const approveAuthority = async () => {
     if (!user) return;
     const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/approve-authority`, {
@@ -115,6 +128,7 @@ export function AuthProvider({ children }) {
       verifyOtp,
       googleSignIn,
       emailSignIn,
+      emailSignUp,
       approveAuthority,
       logout
     }}>

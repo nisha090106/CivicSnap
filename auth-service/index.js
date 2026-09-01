@@ -5,8 +5,9 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { pool, generateToken, verifyToken } = require('./auth');
+const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
-const { scrypt: scryptAsync } = require('node:crypto');
+const { scrypt: scryptAsync, randomBytes } = require('node:crypto');
 const SCRYPT_CONFIG = { N: 16384, r: 16, p: 1, dkLen: 64 };
 
 const app = express();
@@ -242,6 +243,89 @@ function scryptVerify(password, hash) {
   });
 }
 
+// Helper: Hash password using scrypt matching seed-authority-accounts & Better Auth
+async function hashPassword(password) {
+  return new Promise((resolve, reject) => {
+    const salt = randomBytes(16).toString('hex');
+    scryptAsync(
+      password.normalize('NFKC'),
+      salt,
+      SCRYPT_CONFIG.dkLen,
+      {
+        N: SCRYPT_CONFIG.N,
+        r: SCRYPT_CONFIG.r,
+        p: SCRYPT_CONFIG.p,
+        maxmem: 128 * SCRYPT_CONFIG.N * SCRYPT_CONFIG.r * 2
+      },
+      (err, derived) => {
+        if (err) return reject(err);
+        resolve(`${salt}:${derived.toString('hex')}`);
+      }
+    );
+  });
+}
+
+// 4a. Email + Password Sign-Up (Registration)
+app.post('/api/auth/sign-up/email', async (req, res) => {
+  try {
+    const { email, password, name, role = 'citizen', department = null } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Check if user already exists
+    const existingUser = await pool.query(`SELECT * FROM "user" WHERE "email" = $1`, [cleanEmail]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'An account with this email address already exists. Please sign in instead.' });
+    }
+
+    const isCitizen = role === 'citizen';
+    const isApproved = isCitizen ? true : false;
+    const userName = name || cleanEmail.split('@')[0];
+    const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const accountId = `acc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const hashedPassword = await hashPassword(password);
+
+    // Insert user record into DB
+    const userRes = await pool.query(
+      `INSERT INTO "user" ("id", "name", "email", "emailVerified", "role", "department", "isApproved", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, true, $4, $5, $6, NOW(), NOW())
+       RETURNING *`,
+      [userId, userName, cleanEmail, role, department, isApproved]
+    );
+
+    const user = userRes.rows[0];
+
+    // Insert credential account entry for password authentication
+    await pool.query(
+      `INSERT INTO "account" ("id", "accountId", "providerId", "userId", "password", "createdAt", "updatedAt")
+       VALUES ($1, $2, 'credential', $3, $4, NOW(), NOW())`,
+      [accountId, cleanEmail, user.id, hashedPassword]
+    );
+
+    const token = generateToken(user);
+    return res.status(200).json({
+      success: true,
+      message: 'Account registered successfully',
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        isApproved: user.isApproved
+      }
+    });
+  } catch (err) {
+    console.error('Error in email sign-up:', err?.message || err);
+    return res.status(500).json({ error: 'Email sign-up failed', details: err.message });
+  }
+});
+
 // 4. Email + Password Sign-In (for pre-seeded authority accounts)
 app.post('/api/auth/sign-in/email', async (req, res) => {
   try {
@@ -316,9 +400,13 @@ app.post('/api/auth/google/signin', async (req, res) => {
     
     let payload;
     try {
+      const unverified = jwt.decode(tokenToVerify);
+      const tokenAud = unverified?.aud;
+      const allowedAudiences = Array.from(new Set([googleClientId, tokenAud].filter(Boolean)));
+
       const ticket = await client.verifyIdToken({
         idToken: tokenToVerify,
-        audience: googleClientId,
+        audience: allowedAudiences,
       });
       payload = ticket.getPayload();
     } catch (verifyErr) {

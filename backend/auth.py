@@ -8,6 +8,17 @@ load_dotenv()
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
+
+def get_optional_user(credentials: HTTPAuthorizationCredentials = Depends(security_optional)):
+    if not credentials:
+        return None
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return payload
+    except Exception:
+        return None
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     token = credentials.credentials

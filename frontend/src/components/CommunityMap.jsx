@@ -41,16 +41,41 @@ export default function CommunityMap({ reports = [] }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {reports.map((report, idx) => (
-          <Marker key={idx} position={[report.latitude || 19.076, report.longitude || 72.877]}>
-            <Popup>
-              <div className="p-1 font-sans text-xs">
-                <strong className="text-bottle-900 font-black">{report.category || 'Civic Issue'}</strong>
-                <p className="text-slate-800 mt-1 font-bold">{report.description || 'Reported by citizen'}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {reports.map((report, idx) => {
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+          const imageUrl = report.image_url
+            ? (report.image_url.startsWith('http') || report.image_url.startsWith('data:')
+                ? report.image_url
+                : `${BACKEND_URL}${report.image_url.startsWith('/') ? '' : '/'}${report.image_url}`)
+            : null;
+          const mapsUrl = `https://www.google.com/maps?q=${report.latitude || 19.076},${report.longitude || 72.877}`;
+
+          return (
+            <Marker key={idx} position={[report.latitude || 19.076, report.longitude || 72.877]}>
+              <Popup>
+                <div className="p-1 font-sans text-xs space-y-2 max-w-[200px]">
+                  {imageUrl && (
+                    <div className="h-24 rounded-lg overflow-hidden bg-slate-900 border border-slate-200">
+                      <img src={imageUrl} alt="Evidence" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div>
+                    <strong className="text-bottle-900 font-black block">{report.category || 'Civic Issue'}</strong>
+                    <p className="text-slate-800 text-[11px] font-bold line-clamp-2 mt-0.5">{report.description || 'Reported civic issue'}</p>
+                  </div>
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1 w-full py-1.5 bg-bottle-900 text-white rounded-lg text-[10px] font-black no-underline"
+                  >
+                    <span>Google Maps ↗</span>
+                  </a>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
 
       {/* Empty Map State Indicator */}
