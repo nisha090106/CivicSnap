@@ -12,7 +12,7 @@ from botocore.config import Config
 
 from database import engine, Base, check_db_connection, get_db
 from sqlalchemy.orm import Session
-from sqlalchemy import cast, String
+from sqlalchemy import cast, String, text
 from auth import get_current_user, get_optional_user, require_citizen, require_authority
 import models
 
@@ -24,6 +24,8 @@ from services.email_service import draft_official_email, anti_hallucination_crit
 # Initialize database schema
 try:
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS email_id VARCHAR(255)"))
     print("Database tables initialized / verified successfully.")
 except Exception as e:
     print(f"Database initialization notice: {e}")
@@ -222,7 +224,8 @@ def submit_civic_report(
             email_draft=critic_result["verified_body"],
             critic_verdict=critic_result["verdict"],
             email_status=worker_res["status"],
-            email_sent_at=datetime.now(timezone.utc)
+            email_id=worker_res.get("email_id"),
+            email_sent_at=datetime.now(timezone.utc) if worker_res["status"] == "sent" else None
         )
 
         db.add(new_report)
@@ -239,6 +242,8 @@ def submit_civic_report(
             "anonymous_disclaimer": complaint_data["header_notice"],
             "soap_transcript": new_report.soap_transcript,
             "critic_verdict": new_report.critic_verdict,
+            "email_status": new_report.email_status,
+            "email_id": new_report.email_id,
             "ttl_expires_at": new_report.ttl_expires_at.isoformat() if new_report.ttl_expires_at else None
         }
     except Exception as err:

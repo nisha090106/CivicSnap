@@ -53,5 +53,6 @@ class Report(Base):
     email_draft = Column(Text, nullable=True)
     critic_verdict = Column(Text, nullable=True)
     email_status = Column(String(50), nullable=True, default="pending")
+    email_id = Column(String(255), nullable=True)
     email_sent_at = Column(DateTime(timezone=True), nullable=True)
 

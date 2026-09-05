@@ -152,7 +152,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     setError('');
     try {
       const res = await googleSignIn({
-        id_token: credentialResponse.credential,
+        idToken: credentialResponse.credential,
         role,
         department: role === 'authority' ? department : null
       });

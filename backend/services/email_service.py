@@ -1,6 +1,12 @@
 import os
 from datetime import datetime, timezone
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+load_dotenv()
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL")
 
 def draft_official_email(
     complaint_data: Dict[str, Any],
@@ -99,18 +105,48 @@ def dispatch_email_worker(
     critic_verdict: str
 ) -> Dict[str, Any]:
     """
-    Emailing Worker:
-    Asynchronous delivery worker for dispatching verified emails to authority mailboxes.
+    Dispatch a critic-approved email through Resend.
+
+    A failed provider call is returned as an explicit failed status so callers can
+    persist the failure instead of reporting a false successful delivery.
     """
-    print(f"\n================================================================================")
-    print(f"[EMAIL WORKER DISPATCH] Destination: {target_email}")
-    print(f"[CRITIC VERDICT]: {critic_verdict}")
-    print(f"[SUBJECT]: {subject}")
-    print(f"================================================================================\n")
-    
-    return {
-        "status": "sent",
-        "recipient": target_email,
-        "sent_at": datetime.now(timezone.utc).isoformat(),
-        "critic_verdict": critic_verdict
-    }
+    if not RESEND_API_KEY:
+        error = "RESEND_API_KEY is not configured"
+        print(f"[EMAIL WORKER FAILURE] {error}")
+        return {"status": "failed", "recipient": target_email, "error": error, "email_id": None}
+
+    try:
+        import resend
+
+        resend.api_key = RESEND_API_KEY
+        override_email = os.getenv("TEST_EMAIL_OVERRIDE")
+        final_to = [override_email] if override_email else [target_email]
+        print(f"[EMAIL] from={RESEND_FROM_EMAIL} to={final_to}")
+        response = resend.Emails.send({
+            "from": RESEND_FROM_EMAIL,
+            "to": final_to,
+            "subject": subject,
+            "text": body
+        })
+
+        email_id = response.get("id") if isinstance(response, dict) else getattr(response, "id", None)
+        if not email_id:
+            raise RuntimeError(f"Resend returned no email ID: {response!r}")
+
+        print(f"[EMAIL WORKER SUCCESS] Resend email {email_id} sent to {target_email}")
+        return {
+            "status": "sent",
+            "recipient": target_email,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "critic_verdict": critic_verdict,
+            "email_id": email_id
+        }
+    except Exception as error:
+        print(f"[EMAIL WORKER FAILURE] Resend dispatch to {target_email} failed: {error}")
+        return {
+            "status": "failed",
+            "recipient": target_email,
+            "critic_verdict": critic_verdict,
+            "error": str(error),
+            "email_id": None
+        }

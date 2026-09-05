@@ -83,10 +83,16 @@ export function AuthProvider({ children }) {
   };
 
   const emailSignIn = async ({ email, password }) => {
-    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/sign-in/email`, {
+    const url = `${AUTH_SERVICE_URL}/api/auth/sign-in/email`;
+    const payload = { email, password };
+    console.log('[AuthContext] emailSignIn request', {
+      url,
+      payload: { email, password: '[REDACTED]' }
+    });
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (data.success && data.token) {
@@ -138,7 +144,6 @@ export function AuthProvider({ children }) {
       verifyOtp,
       emailSignIn,
       googleSignIn,
-      emailSignIn,
       emailSignUp,
       approveAuthority,
       logout
