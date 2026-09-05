@@ -243,8 +243,15 @@ export default function ReportIssueModal({ isOpen, onClose }) {
     } catch (err) {
       console.warn('[Preview Warning] Server offline, rendering offline multi-lingual preview:', err);
       const nameStr = discloseIdentity ? (user?.name || 'Registered Citizen') : 'Anonymous Citizen';
+      const offlineLetters = {
+        en: `NOTICE: This report was submitted anonymously via CivicSnap.\n\nTo,\nThe Municipal Authority\nSubject: Official civic complaint regarding ${selectedCategory}\n\nDear Sir or Madam,\n\nI am reporting an urgent civic issue regarding ${selectedCategory}. Please inspect the site and take action within 48 hours.\n\nYours faithfully,\n${nameStr}`,
+        hi: `सूचना: यह शिकायत CivicSnap के माध्यम से गुमनाम रूप से भेजी गई है।\n\nसेवा में,\nनगरपालिका प्राधिकरण\nविषय: ${selectedCategory} के संबंध में आधिकारिक नागरिक शिकायत\n\nआदरणीय महोदय या महोदया,\n\nमैं ${selectedCategory} से संबंधित एक आवश्यक नागरिक समस्या की सूचना दे रहा या रही हूँ। कृपया 48 घंटे के भीतर स्थल का निरीक्षण करके कार्रवाई करें।\n\nभवदीय,\n${nameStr}`,
+        mr: `सूचना: ही तक्रार CivicSnap द्वारे अनामिकपणे पाठवली आहे।\n\nप्रति,\nमहानगरपालिका प्राधिकरण\nविषय: ${selectedCategory} बाबत अधिकृत नागरी तक्रार\n\nआदरणीय महोदय किंवा महोदया,\n\n${selectedCategory} संदर्भातील तातडीची नागरी समस्या मी कळवत आहे। कृपया ४८ तासांच्या आत स्थळाची पाहणी करून कारवाई करावी।\n\nआपला किंवा आपली नम्र,\n${nameStr}`,
+        gu: `સૂચના: આ ફરિયાદ CivicSnap દ્વારા અનામી રીતે મોકલવામાં આવી છે.\n\nપ્રતિ,\nમ્યુનિસિપલ સત્તામંડળ\nવિષય: ${selectedCategory} અંગે સત્તાવાર નાગરિક ફરિયાદ\n\nમાનનીય મહોદય અથવા મહોદયા,\n\nહું ${selectedCategory} સંબંધિત તાત્કાલિક નાગરિક સમસ્યાની જાણ કરું છું. કૃપા કરીને ૪૮ કલાકમાં સ્થળનું નિરીક્ષણ કરી કાર્યવાહી કરો.\n\nઆપનો વિશ્વાસુ,\n${nameStr}`,
+        ta: `அறிவிப்பு: இந்த புகார் CivicSnap மூலம் அநாமதேயமாக அனுப்பப்பட்டது.\n\nபெறுநர்,\nநகராட்சி அதிகாரம்\nபொருள்: ${selectedCategory} தொடர்பான அதிகாரப்பூர்வ குடிமக்கள் புகார்\n\nமதிப்பிற்குரிய அய்யா அல்லது அம்மையீர்,\n\n${selectedCategory} தொடர்பான அவசர குடிமக்கள் பிரச்சினையைத் தெரிவிக்கிறேன். தயவுசெய்து 48 மணி நேரத்திற்குள் இடத்தை ஆய்வு செய்து நடவடிக்கை எடுக்கவும்.\n\nஉண்மையுடன்,\n${nameStr}`
+      };
       setPreviewData({
-        formal_letter: `================================================================================\nFORMAL CIVIC COMPLAINT LETTER\n${discloseIdentity ? `NOTICE: Disclosed Identity: ${nameStr}` : 'NOTICE: Sent Anonymously'}\n================================================================================\n\nTo,\nThe Competent Officer,\nMunicipal Corporation\n\nSUBJECT: Official Complaint Regarding ${selectedCategory}\n\nRespected Sir/Madam,\n\nI am writing to formally bring to your urgent attention a civic issue regarding ${selectedCategory}.\n\nYours faithfully,\n${nameStr}`,
+        formal_letter: offlineLetters[lang] || offlineLetters.en,
         authority_name: 'Municipal Corporation',
         header_notice: discloseIdentity ? `Disclosed: ${nameStr}` : 'Anonymous Report'
       });
