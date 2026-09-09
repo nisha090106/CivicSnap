@@ -18,6 +18,9 @@ __pycache__/
 .pytest_cache/
 venv/
 .venv/
+models_cache/
+backend/models_cache/
+
 
 # Build and distribution output
 dist/

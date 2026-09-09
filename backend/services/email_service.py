@@ -150,3 +150,59 @@ def dispatch_email_worker(
             "error": str(error),
             "email_id": None
         }
+
+
+def send_status_update_notification_to_citizen(
+    target_email: str,
+    report_id: str,
+    category: str,
+    department: str,
+    city_name: str,
+    old_status: str,
+    new_status: str,
+    authority_user: str = "Municipal Authority Officer"
+) -> Dict[str, Any]:
+    """
+    Sends an automated email notification to the reporting citizen whenever the status of their civic report changes
+    (e.g., pending -> in_progress or resolved).
+    """
+    if not target_email or "@" not in target_email:
+        print(f"[STATUS EMAIL NOTICE] No valid citizen email found for report {report_id}. Skipping email dispatch.")
+        return {"status": "skipped", "reason": "No valid citizen email"}
+
+    status_icon = "🟡" if "progress" in new_status.lower() else ("🟢" if "resolve" in new_status.lower() or "complete" in new_status.lower() else "ℹ️")
+    
+    subject = f"[CivicSnap Update] Status Changed to '{new_status.upper()}' for Report #{str(report_id)[:8]}"
+    
+    body = f"""Dear Citizen,
+
+Your registered civic complaint report has been updated by the municipal authorities.
+
+📋 REPORT STATUS UPDATE DETAILS:
+--------------------------------------------------
+- Report ID: {report_id}
+- Issue Category: {category}
+- Jurisdiction / City: {city_name}
+- Department: {department}
+- Previous Status: {old_status}
+- New Status: {status_icon} {new_status.upper()}
+- Updated By: {authority_user}
+--------------------------------------------------
+
+Official Progress Note:
+The assigned municipal department ({department}) has updated the operational status of your complaint to '{new_status}'.
+
+Thank you for contributing to civic improvement with CivicSnap!
+
+Sincerely,
+CivicSnap Automated Notification System
+(Public Civic Issue Platform)
+"""
+
+    return dispatch_email_worker(
+        target_email=target_email,
+        subject=subject,
+        body=body,
+        critic_verdict="PASSED — Status change notification to reporting citizen."
+    )
+

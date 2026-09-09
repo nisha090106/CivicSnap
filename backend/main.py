@@ -19,16 +19,19 @@ import models
 from services.storage_service import save_report_image, calculate_ttl_expiration, cleanup_expired_storage, get_presigned_image_url
 from services.multimodal_service import analyze_and_generate_soap_transcript
 from services.report_generator_service import generate_llm_complaint_report
-from services.email_service import draft_official_email, anti_hallucination_critic, dispatch_email_worker
+from services.email_service import draft_official_email, anti_hallucination_critic, dispatch_email_worker, send_status_update_notification_to_citizen
+from services.classification_service import classify_multimodal_issue
 
 # Initialize database schema
 try:
     Base.metadata.create_all(bind=engine)
     with engine.begin() as connection:
         connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS email_id VARCHAR(255)"))
+        connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS citizen_email VARCHAR(255)"))
     print("Database tables initialized / verified successfully.")
 except Exception as e:
     print(f"Database initialization notice: {e}")
+
 
 app = FastAPI(
     title="CivicSnap Backend API",
@@ -49,19 +52,25 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+class ClassifyReportRequest(BaseModel):
+    image_data: Optional[str] = None
+    description: Optional[str] = ""
+
 class ReportSubmitRequest(BaseModel):
     image_data: Optional[str] = None
-    category: Optional[str] = "pothole"
+    category: Optional[str] = "auto"
     latitude: Optional[float] = 19.0760
     longitude: Optional[float] = 72.8777
     description: Optional[str] = ""
     disclose_identity: Optional[bool] = False
     citizen_name: Optional[str] = None
+    citizen_email: Optional[str] = None
     language: Optional[str] = "en"
+
 
 class ReportPreviewRequest(BaseModel):
     image_data: Optional[str] = None
-    category: Optional[str] = "pothole"
+    category: Optional[str] = "auto"
     latitude: Optional[float] = 19.0760
     longitude: Optional[float] = 72.8777
     description: Optional[str] = ""
@@ -100,6 +109,25 @@ def health_check():
 def get_user_profile(user: dict = Depends(get_current_user)):
     return {"authenticated": True, "user": user}
 
+# 0. MULTI-MODAL MULTI-CLASS CLASSIFICATION ENDPOINT: POST /api/reports/classify
+@app.post("/api/reports/classify")
+def classify_civic_report(req: ClassifyReportRequest):
+    """
+    Multi-Modal Multi-Class Issue Classification & Authority Routing Endpoint.
+    Analyzes visual image evidence & text description to auto-detect issue category & target authority.
+    """
+    try:
+        return classify_multimodal_issue(
+            image_data=req.image_data,
+            description=req.description
+        )
+    except Exception as e:
+        print(f"[Classification Endpoint Error]: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Classification failed: {str(e)}"
+        )
+
 # 1. LIVE MULTI-LINGUAL PREVIEW ENDPOINT: POST /api/reports/preview
 @app.post("/api/reports/preview")
 def preview_civic_report(
@@ -110,9 +138,14 @@ def preview_civic_report(
     Generate instant Multi-lingual Formal Letter Preview before final report filing.
     """
     try:
+        category_to_use = req.category
+        if not category_to_use or category_to_use == "auto":
+            class_res = classify_multimodal_issue(image_data=req.image_data, description=req.description)
+            category_to_use = class_res.get("detected_category") or "pothole"
+
         soap_data = analyze_and_generate_soap_transcript(
             image_url="/static/default_issue.jpg",
-            category=req.category,
+            category=category_to_use,
             lat=req.latitude or 19.0760,
             lng=req.longitude or 72.8777,
             user_notes=req.description or ""
@@ -168,15 +201,21 @@ def submit_civic_report(
         image_url = save_report_image(req.image_data)
 
         # Step 2 & 3: Multi-modal Visual Classification & SOAP Transcript Generation
+        category_to_use = req.category
+        if not category_to_use or category_to_use == "auto":
+            class_res = classify_multimodal_issue(image_data=req.image_data, description=req.description)
+            category_to_use = class_res.get("detected_category") or "pothole"
+
         soap_data = analyze_and_generate_soap_transcript(
             image_url=image_url,
-            category=req.category,
+            category=category_to_use,
             lat=req.latitude or 19.0760,
             lng=req.longitude or 72.8777,
             user_notes=req.description or ""
         )
 
         citizen_name = req.citizen_name or (user.get("name") if user else None) or "Anonymous Citizen"
+        citizen_email = req.citizen_email or (user.get("email") if user else None)
 
         # Step 4 & 5: Multi-Lingual Formal Letter Generation & Authority Routing
         complaint_data = generate_llm_complaint_report(
@@ -206,6 +245,7 @@ def submit_civic_report(
         # Step 7: Create & Save Report Record in Supabase PostgreSQL
         new_report = models.Report(
             citizen_id=user.get("id") if user else None,
+            citizen_email=citizen_email,
             image_url=image_url,
             category=soap_data["category"],
             latitude=req.latitude,
@@ -227,6 +267,7 @@ def submit_civic_report(
             email_id=worker_res.get("email_id"),
             email_sent_at=datetime.now(timezone.utc) if worker_res["status"] == "sent" else None
         )
+
 
         db.add(new_report)
         db.commit()
@@ -445,16 +486,43 @@ def update_report_status(
         if not report:
             raise HTTPException(status_code=404, detail="Report not found")
 
-        report.status = req.status
+        old_status = report.status or "pending"
+        new_status = req.status
+
+        report.status = new_status
         db.commit()
         db.refresh(report)
 
+        # Dispatch automated status update email notification to citizen if status changed
+        email_notification_result = None
+        if old_status.lower() != new_status.lower():
+            target_citizen_email = report.citizen_email
+            # Fallback to user claims or test override
+            if not target_citizen_email and os.getenv("TEST_EMAIL_OVERRIDE"):
+                target_citizen_email = os.getenv("TEST_EMAIL_OVERRIDE")
+            
+            authority_name = user.get("name") or user.get("department") or "Municipal Authority"
+            
+            if target_citizen_email:
+                email_notification_result = send_status_update_notification_to_citizen(
+                    target_email=target_citizen_email,
+                    report_id=str(report.report_id),
+                    category=report.category or "Civic Issue",
+                    department=report.department or "Municipal Corporation",
+                    city_name=report.city_name or "Mumbai",
+                    old_status=old_status,
+                    new_status=new_status,
+                    authority_user=authority_name
+                )
+
         return {
             "success": True,
-            "message": f"Report status updated to '{req.status}'",
+            "message": f"Report status updated from '{old_status}' to '{new_status}'",
             "report_id": str(report.report_id),
-            "status": report.status
+            "status": report.status,
+            "citizen_email_notification": email_notification_result
         }
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

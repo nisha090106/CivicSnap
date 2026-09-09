@@ -17,14 +17,19 @@ import {
   Globe,
   ArrowLeft,
   Send,
-  UserCheck
+  UserCheck,
+  Edit3,
+  RotateCcw
 } from 'lucide-react';
 
+
 const CATEGORIES = [
-  { id: 'pothole', label: 'Road & Pothole', icon: '🛣️' },
-  { id: 'garbage', label: 'Waste / Garbage', icon: '🗑️' },
-  { id: 'water', label: 'Water Leakage', icon: '💧' },
-  { id: 'electricity', label: 'Street Light / Wire', icon: '💡' },
+  { id: 'pothole', label: 'Road & Pothole', department: 'Road & Transport', icon: '🛣️' },
+  { id: 'garbage', label: 'Waste / Garbage', department: 'Garbage & Waste Management', icon: '🗑️' },
+  { id: 'water', label: 'Water Leakage', department: 'Municipal Corporation', icon: '💧' },
+  { id: 'electricity', label: 'Street Light / Wire', department: 'Municipal Corporation', icon: '💡' },
+  { id: 'food', label: 'Food & Sanitation', department: 'Food & Drug Authority', icon: '🍲' },
+  { id: 'forest', label: 'Forest & Wildlife', department: 'Forest Department', icon: '🌲' },
 ];
 
 const LANGUAGES = [
@@ -45,6 +50,20 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState(null);
+  const [letterCacheMap, setLetterCacheMap] = useState({});
+
+  const CACHE_KEY = 'civicsnap_parallel_preview_cache';
+
+  const purgePreviewCache = () => {
+    setLetterCacheMap({});
+    setPreviewData(null);
+    try {
+      sessionStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_KEY);
+    } catch (e) {
+      console.warn('[Cache Purge Notice]:', e);
+    }
+  };
 
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -58,6 +77,40 @@ export default function ReportIssueModal({ isOpen, onClose }) {
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const [gpsLocation, setGpsLocation] = useState({ lat: '19.0760', lng: '72.8777' });
+
+  // AI Multi-Modal Classification State
+  const [classifying, setClassifying] = useState(false);
+  const [classificationResult, setClassificationResult] = useState(null);
+  const [isManualOverride, setIsManualOverride] = useState(false);
+  const [showModelBreakdown, setShowModelBreakdown] = useState(false);
+
+  const runAIClassification = async (imgData = imageSrc, textDesc = description) => {
+    if (!imgData) return;
+    setClassifying(true);
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/reports/classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_data: imgData, description: textDesc })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setClassificationResult(data);
+        if (data.status === 'classified' && data.detected_category && !isManualOverride) {
+          setSelectedCategory(data.detected_category);
+        }
+      }
+    } catch (err) {
+      console.warn('[AI Classification Notice]:', err);
+      setClassificationResult({
+        status: 'needs_manual_review',
+        message: 'AI classification offline. Please select the destination authority department manually below.'
+      });
+    } finally {
+      setClassifying(false);
+    }
+  };
 
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -127,17 +180,20 @@ export default function ReportIssueModal({ isOpen, onClose }) {
       }
     } else {
       stopCamera();
+      purgePreviewCache();
       setImageSrc(null);
       setCameraError(null);
       setSubmitted(false);
       setSubmitResult(null);
-      setPreviewData(null);
       setDescription('');
+      setClassificationResult(null);
+      setIsManualOverride(false);
       setStep(1);
     }
 
     return () => {
       stopCamera();
+      purgePreviewCache();
     };
   }, [isOpen]);
 
@@ -173,7 +229,10 @@ export default function ReportIssueModal({ isOpen, onClose }) {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
     setImageSrc(dataUrl);
+    purgePreviewCache();
     stopCamera();
+    setIsManualOverride(false);
+    runAIClassification(dataUrl, description);
   };
 
   const handleFileSelect = (e) => {
@@ -185,7 +244,11 @@ export default function ReportIssueModal({ isOpen, onClose }) {
       }
       const reader = new FileReader();
       reader.onload = (event) => {
-        setImageSrc(event.target.result);
+        const loadedSrc = event.target.result;
+        setImageSrc(loadedSrc);
+        purgePreviewCache();
+        setIsManualOverride(false);
+        runAIClassification(loadedSrc, description);
       };
       reader.readAsDataURL(file);
     }
@@ -193,6 +256,9 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
   const handleClearImage = () => {
     setImageSrc(null);
+    purgePreviewCache();
+    setClassificationResult(null);
+    setIsManualOverride(false);
     if (photoSource === 'camera') {
       startCamera(facingMode);
     }
@@ -200,48 +266,42 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
   const handleClose = () => {
     stopCamera();
+    purgePreviewCache();
     onClose();
   };
 
-  // Generate Multi-lingual Formal Letter Preview
-  const handleGeneratePreview = async (lang = selectedLanguage) => {
+  // Generate Multi-lingual Formal Letters PARALLELLY & Cache in Session Storage
+  const handleGeneratePreview = async (targetLang = selectedLanguage) => {
     if (!imageSrc) {
       alert('Please capture or upload evidence photo first.');
       return;
     }
 
-    setSelectedLanguage(lang);
+    setSelectedLanguage(targetLang);
+
+    // 1. Check local state cache & Session Storage cache for ZERO-LATENCY instant retrieval
+    let currentCache = { ...letterCacheMap };
+    if (Object.keys(currentCache).length === 0) {
+      try {
+        const stored = sessionStorage.getItem(CACHE_KEY);
+        if (stored) {
+          currentCache = JSON.parse(stored);
+          setLetterCacheMap(currentCache);
+        }
+      } catch (e) {}
+    }
+
+    if (currentCache[targetLang]) {
+      setPreviewData(currentCache[targetLang]);
+      setStep(2);
+      return;
+    }
+
+    // 2. If not cached, generate ALL 5 languages IN PARALLEL for zero-latency future switches
     setPreviewLoading(true);
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/reports/preview`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          image_data: imageSrc,
-          category: selectedCategory,
-          latitude: parseFloat(gpsLocation.lat) || 19.0760,
-          longitude: parseFloat(gpsLocation.lng) || 72.8777,
-          description,
-          disclose_identity: discloseIdentity,
-          citizen_name: user?.name || null,
-          language: lang
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setPreviewData(data);
-        setStep(2);
-      } else {
-        alert(data.detail || 'Preview generation failed');
-      }
-    } catch (err) {
-      console.warn('[Preview Warning] Server offline, rendering offline multi-lingual preview:', err);
       const nameStr = discloseIdentity ? (user?.name || 'Registered Citizen') : 'Anonymous Citizen';
       const offlineLetters = {
         en: `NOTICE: This report was submitted anonymously via CivicSnap.\n\nTo,\nThe Municipal Authority\nSubject: Official civic complaint regarding ${selectedCategory}\n\nDear Sir or Madam,\n\nI am reporting an urgent civic issue regarding ${selectedCategory}. Please inspect the site and take action within 48 hours.\n\nYours faithfully,\n${nameStr}`,
@@ -250,12 +310,67 @@ export default function ReportIssueModal({ isOpen, onClose }) {
         gu: `સૂચના: આ ફરિયાદ CivicSnap દ્વારા અનામી રીતે મોકલવામાં આવી છે.\n\nપ્રતિ,\nમ્યુનિસિપલ સત્તામંડળ\nવિષય: ${selectedCategory} અંગે સત્તાવાર નાગરિક ફરિયાદ\n\nમાનનીય મહોદય અથવા મહોદયા,\n\nહું ${selectedCategory} સંબંધિત તાત્કાલિક નાગરિક સમસ્યાની જાણ કરું છું. કૃપા કરીને ૪૮ કલાકમાં સ્થળનું નિરીક્ષણ કરી કાર્યવાહી કરો.\n\nઆપનો વિશ્વાસુ,\n${nameStr}`,
         ta: `அறிவிப்பு: இந்த புகார் CivicSnap மூலம் அநாமதேயமாக அனுப்பப்பட்டது.\n\nபெறுநர்,\nநகராட்சி அதிகாரம்\nபொருள்: ${selectedCategory} தொடர்பான அதிகாரப்பூர்வ குடிமக்கள் புகார்\n\nமதிப்பிற்குரிய அய்யா அல்லது அம்மையீர்,\n\n${selectedCategory} தொடர்பான அவசர குடிமக்கள் பிரச்சினையைத் தெரிவிக்கிறேன். தயவுசெய்து 48 மணி நேரத்திற்குள் இடத்தை ஆய்வு செய்து நடவடிக்கை எடுக்கவும்.\n\nஉண்மையுடன்,\n${nameStr}`
       };
-      setPreviewData({
-        formal_letter: offlineLetters[lang] || offlineLetters.en,
-        authority_name: 'Municipal Corporation',
-        header_notice: discloseIdentity ? `Disclosed: ${nameStr}` : 'Anonymous Report'
+
+      const parallelResults = await Promise.all(
+        LANGUAGES.map(async (langObj) => {
+          const lId = langObj.id;
+          try {
+            const res = await fetch(`${BACKEND_URL}/api/reports/preview`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                image_data: imageSrc,
+                category: selectedCategory,
+                latitude: parseFloat(gpsLocation.lat) || 19.0760,
+                longitude: parseFloat(gpsLocation.lng) || 72.8777,
+                description,
+                disclose_identity: discloseIdentity,
+                citizen_name: user?.name || null,
+                language: lId
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              return { lang: lId, data };
+            }
+          } catch (err) {
+            console.warn(`[Parallel Preview Notice for ${lId}]:`, err);
+          }
+
+          // Fallback offline preview if request fails
+          return {
+            lang: lId,
+            data: {
+              success: true,
+              formal_letter: offlineLetters[lId] || offlineLetters.en,
+              authority_name: 'Municipal Corporation',
+              header_notice: discloseIdentity ? `Disclosed: ${nameStr}` : 'Anonymous Report'
+            }
+          };
+        })
+      );
+
+      const newCacheMap = {};
+      parallelResults.forEach((item) => {
+        if (item.data) {
+          newCacheMap[item.lang] = item.data;
+        }
       });
+
+      setLetterCacheMap(newCacheMap);
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(newCacheMap));
+      } catch (e) {}
+
+      if (newCacheMap[targetLang]) {
+        setPreviewData(newCacheMap[targetLang]);
+      }
       setStep(2);
+    } catch (err) {
+      console.warn('[Parallel Multi-Lingual Generation Failed]:', err);
     } finally {
       setPreviewLoading(false);
     }
@@ -284,14 +399,17 @@ export default function ReportIssueModal({ isOpen, onClose }) {
           description,
           disclose_identity: discloseIdentity,
           citizen_name: user?.name || null,
+          citizen_email: user?.email || null,
           language: selectedLanguage
         })
+
       });
 
       const data = await res.json();
       if (data.success) {
         setSubmitResult(data);
         setSubmitted(true);
+        purgePreviewCache();
         window.dispatchEvent(new CustomEvent('civicsnap:reportSubmitted'));
         setTimeout(() => {
           setSubmitted(false);
@@ -307,6 +425,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
     } catch (err) {
       console.warn('[Report Submission Warning] Backend offline, simulating submission:', err);
       setSubmitted(true);
+      purgePreviewCache();
       setTimeout(() => {
         setSubmitted(false);
         setImageSrc(null);
@@ -318,6 +437,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
       setSubmitting(false);
     }
   };
+
 
   if (!isOpen) return null;
 
@@ -521,45 +641,172 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                 )}
               </div>
 
-              {/* CATEGORY, DISCLOSURE & PREVIEW CONTROLS */}
+              {/* STEP 1: DETAILS & PHOTO CAPTURE */}
               {step === 1 ? (
                 <>
-                  {/* Category Selector */}
-                  <div className="space-y-2">
-                    <label className="block text-xs font-black text-bottle-800 uppercase tracking-wider">
-                      2. Select Issue Category
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {CATEGORIES.map((cat) => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setSelectedCategory(cat.id)}
-                          className={`min-h-[52px] px-3 py-3 rounded-2xl border text-left font-semibold text-xs flex items-center gap-2.5 transition cursor-pointer ${selectedCategory === cat.id
-                              ? 'bg-bottle-800 border-bottle-700 text-white font-black shadow-md shadow-bottle-950/30'
-                              : 'bg-white border-pista-400 text-bottle-800 hover:bg-pista-200'
-                            }`}
-                        >
-                          <span className="text-lg">{cat.icon}</span>
-                          <span>{cat.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* AI Multi-Modal Auto-Classification Status Card */}
+                  {imageSrc && (
+                    <div className="p-4 bg-white rounded-2xl border border-pista-400 shadow-sm space-y-3 transition-all duration-300">
+                      {classifying ? (
+                        <div className="flex items-center gap-3 text-bottle-900 font-extrabold text-xs py-1">
+                          <RefreshCw className="w-5 h-5 animate-spin text-bottle-800" />
+                          <span>AI Multi-Modal Engine analyzing evidence photo...</span>
+                        </div>
+                      ) : classificationResult?.status === 'classified' ? (
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-[11px] font-black uppercase tracking-wider">
+                              <Sparkles className="w-3.5 h-3.5 text-emerald-700 animate-pulse" />
+                              {classificationResult.winning_model || 'Specialized Domain Evaluator'}
+                            </span>
+                            <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              {classificationResult.confidence_percent || Math.round((classificationResult.confidence_score || 0) * 100)}% Match
+                            </span>
+                          </div>
 
-                  {/* Optional Description */}
-                  <div className="space-y-2">
+                          <div className="p-3.5 bg-pista-50/80 rounded-xl border border-pista-300 flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-xs font-black text-bottle-900">
+                                Detected: <span className="text-emerald-900">{classificationResult.category_label}</span>
+                              </div>
+                              <div className="text-[11px] font-extrabold text-bottle-700 flex items-center gap-1 mt-0.5">
+                                <ShieldCheck className="w-3.5 h-3.5 text-bottle-800" />
+                                Target Authority: <span className="underline font-black">{classificationResult.target_department}</span>
+                              </div>
+                            </div>
+
+                            {/* Explicit Citizen Classification Override Button */}
+                            <button
+                              type="button"
+                              onClick={() => setIsManualOverride(!isManualOverride)}
+                              className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+                                isManualOverride
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                                  : 'bg-white text-bottle-800 border-pista-400 hover:bg-pista-200 shadow-xs'
+                              }`}
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-bottle-800" />
+                              {isManualOverride ? 'Override Active' : 'Classification wrong?'}
+                            </button>
+                          </div>
+
+                          {/* Expandable Multi-Model Ensemble Breakdown */}
+                          {classificationResult.all_model_confidences && classificationResult.all_model_confidences.length > 0 && (
+                            <div className="pt-1.5 border-t border-pista-200">
+                              <button
+                                type="button"
+                                onClick={() => setShowModelBreakdown(!showModelBreakdown)}
+                                className="text-[11px] font-black text-bottle-800 hover:text-bottle-600 flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>{showModelBreakdown ? '▼ Hide' : '▶ Compare'} All 6 Domain Models</span>
+                              </button>
+
+                              {showModelBreakdown && (
+                                <div className="mt-2 space-y-1.5 p-2.5 bg-pista-100/70 rounded-xl border border-pista-300 font-mono text-[11px]">
+                                  {classificationResult.all_model_confidences.map((m, idx) => (
+                                    <div key={m.model_id} className="flex items-center justify-between">
+                                      <span className="font-semibold text-slate-800 flex items-center gap-1">
+                                        {idx === 0 ? '🏆' : '•'} {m.model_name}
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-20 bg-slate-200 h-2 rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full ${idx === 0 ? 'bg-emerald-600' : 'bg-slate-400'}`}
+                                            style={{ width: `${m.confidence}%` }}
+                                          ></div>
+                                        </div>
+                                        <span className="font-black text-bottle-900 w-9 text-right">{m.confidence}%</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* Low confidence / offline fallback prompt */
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 space-y-1.5 text-amber-900">
+                          <div className="flex items-center gap-2 text-xs font-black">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>AI Confidence Low or Offline</span>
+                          </div>
+                          <p className="text-[11px] font-semibold text-amber-800 leading-snug">
+                            {classificationResult?.message || "Please select the target authority department manually below."}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* CONDITIONAL CATEGORY & AUTHORITY SELECTOR (Appears ONLY if Citizen clicks Override OR AI is uncertain) */}
+                  {(isManualOverride || classificationResult?.status === 'needs_manual_review') && (
+                    <div className="space-y-3 p-4 bg-amber-50/80 rounded-2xl border-2 border-amber-300 shadow-sm transition-all duration-300">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <Edit3 className="w-4 h-4 text-amber-700" />
+                          Citizen Override: Select Target Authority
+                        </label>
+                        {classificationResult?.status === 'classified' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(classificationResult.detected_category);
+                              setIsManualOverride(false);
+                            }}
+                            className="text-[10px] text-amber-900 font-extrabold underline flex items-center gap-1 hover:text-amber-950 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3 h-3" /> Reset to AI Result ({classificationResult.category_label})
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {CATEGORIES.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(cat.id);
+                              setIsManualOverride(true);
+                              purgePreviewCache();
+                            }}
+                            className={`min-h-[52px] px-3 py-2 rounded-xl border text-left font-semibold text-xs flex flex-col justify-center transition cursor-pointer ${
+                              selectedCategory === cat.id
+                                ? 'bg-bottle-800 border-bottle-700 text-white font-black shadow-md'
+                                : 'bg-white border-amber-200 text-bottle-900 hover:bg-amber-100/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-base">{cat.icon}</span>
+                              <span className="font-black text-xs leading-tight">{cat.label}</span>
+                            </div>
+                            <span className={`text-[10px] mt-0.5 font-mono truncate ${selectedCategory === cat.id ? 'text-pista-200' : 'text-slate-500'}`}>
+                              ↳ {cat.department}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Optional Description Notes */}
+                  <div className="space-y-1.5">
                     <label className="block text-xs font-black text-bottle-800 uppercase tracking-wider">
-                      3. Additional Notes (Optional)
+                      2. Additional Notes (Optional)
                     </label>
                     <input
                       type="text"
                       placeholder="Describe issue location or details..."
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-slate-900 placeholder-slate-400 text-xs font-semibold focus:outline-none focus:border-bottle-800 min-h-[48px]"
+                      onBlur={() => {
+                        if (imageSrc) runAIClassification(imageSrc, description);
+                      }}
+                      className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-slate-900 placeholder-slate-400 text-xs font-semibold focus:outline-none focus:border-bottle-800 min-h-[48px] shadow-xs"
                     />
                   </div>
+
 
                   {/* Disclosure Checkbox */}
                   <div className="p-4 bg-white rounded-2xl border border-pista-400 space-y-2 shadow-xs">
@@ -567,9 +814,13 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                       <input
                         type="checkbox"
                         checked={discloseIdentity}
-                        onChange={(e) => setDiscloseIdentity(e.target.checked)}
+                        onChange={(e) => {
+                          setDiscloseIdentity(e.target.checked);
+                          purgePreviewCache();
+                        }}
                         className="w-5 h-5 accent-bottle-800 rounded cursor-pointer mt-0.5"
                       />
+
                       <div>
                         <span className="text-xs font-black text-bottle-900 flex items-center gap-1.5">
                           <UserCheck className="w-4 h-4 text-bottle-800" />

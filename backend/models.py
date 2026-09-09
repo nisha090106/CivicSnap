@@ -14,7 +14,9 @@ class Report(Base):
         server_default=text("gen_random_uuid()")
     )
     citizen_id = Column(String(100), nullable=True)
+    citizen_email = Column(String(255), nullable=True)
     image_url = Column(Text, nullable=True)
+
     category = Column(String(100), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)

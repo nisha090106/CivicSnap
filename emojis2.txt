@@ -1,2 +1,0 @@
-D:\DTPLM_CP\frontend\src\pages\AuthorityDashboard.jsx:20: 🏛️
-D:\DTPLM_CP\frontend\src\pages\AuthorityLogin.jsx:56: 🏛️
