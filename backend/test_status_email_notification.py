@@ -13,8 +13,9 @@ def run_tests():
     print("Testing Status Update Email Notification to Citizen")
     print("==================================================")
     
-    test_email = "test.citizen@example.com"
+    test_email = "citizen.reporter@gmail.com"
     report_id = str(uuid.uuid4())
+
     
     # 1. Test Pending -> In Progress transition
     res1 = send_status_update_notification_to_citizen(

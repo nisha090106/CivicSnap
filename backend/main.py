@@ -493,11 +493,24 @@ def update_report_status(
         db.commit()
         db.refresh(report)
 
-        # Dispatch automated status update email notification to citizen if status changed
+        # Dispatch automated status update email notification to the reporting citizen if status changed
         email_notification_result = None
         if old_status.lower() != new_status.lower():
             target_citizen_email = report.citizen_email
-            # Fallback to user claims or test override
+            
+            # If citizen_email not stored directly on report, look up citizen_id in database users table
+            if not target_citizen_email and report.citizen_id:
+                try:
+                    user_row = db.execute(
+                        text("SELECT email FROM users WHERE id = :cid OR user_id = :cid LIMIT 1"),
+                        {"cid": str(report.citizen_id)}
+                    ).fetchone()
+                    if user_row and user_row[0]:
+                        target_citizen_email = user_row[0]
+                except Exception as e:
+                    print(f"[Citizen Email Lookup Notice]: {e}")
+
+            # Fallback to test override only if no citizen email found
             if not target_citizen_email and os.getenv("TEST_EMAIL_OVERRIDE"):
                 target_citizen_email = os.getenv("TEST_EMAIL_OVERRIDE")
             
@@ -514,6 +527,7 @@ def update_report_status(
                     new_status=new_status,
                     authority_user=authority_name
                 )
+
 
         return {
             "success": True,

@@ -119,15 +119,21 @@ def dispatch_email_worker(
         import resend
 
         resend.api_key = RESEND_API_KEY
-        override_email = os.getenv("TEST_EMAIL_OVERRIDE")
-        final_to = [override_email] if override_email else [target_email]
-        print(f"[EMAIL] from={RESEND_FROM_EMAIL} to={final_to}")
+        
+        # Send directly to the target recipient's email address (reporting citizen)
+        final_to_email = target_email
+        if (not final_to_email or "@" not in final_to_email) and os.getenv("TEST_EMAIL_OVERRIDE"):
+            final_to_email = os.getenv("TEST_EMAIL_OVERRIDE")
+
+        final_to = [final_to_email]
+        print(f"[EMAIL DISPATCH] Sending notification email from={RESEND_FROM_EMAIL} to={final_to}")
         response = resend.Emails.send({
             "from": RESEND_FROM_EMAIL,
             "to": final_to,
             "subject": subject,
             "text": body
         })
+
 
         email_id = response.get("id") if isinstance(response, dict) else getattr(response, "id", None)
         if not email_id:
