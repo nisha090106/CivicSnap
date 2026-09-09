@@ -400,7 +400,8 @@ export default function ReportIssueModal({ isOpen, onClose }) {
           disclose_identity: discloseIdentity,
           citizen_name: user?.name || null,
           citizen_email: user?.email || null,
-          language: selectedLanguage
+          language: selectedLanguage,
+          complaint_report: previewData?.formal_letter || null
         })
 
       });

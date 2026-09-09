@@ -120,10 +120,13 @@ def dispatch_email_worker(
 
         resend.api_key = RESEND_API_KEY
         
-        # Send directly to the target recipient's email address (reporting citizen)
-        final_to_email = target_email
-        if (not final_to_email or "@" not in final_to_email) and os.getenv("TEST_EMAIL_OVERRIDE"):
-            final_to_email = os.getenv("TEST_EMAIL_OVERRIDE")
+        # In dev mode, route emails to TEST_EMAIL_OVERRIDE to satisfy Resend unverified domain policy
+        test_override = os.getenv("TEST_EMAIL_OVERRIDE")
+        if test_override:
+            final_to_email = test_override
+            print(f"[EMAIL DISPATCH] TEST_EMAIL_OVERRIDE active: Routing notification for target recipient '{target_email}' to test address '{final_to_email}'")
+        else:
+            final_to_email = target_email or "onboarding@resend.dev"
 
         final_to = [final_to_email]
         print(f"[EMAIL DISPATCH] Sending notification email from={RESEND_FROM_EMAIL} to={final_to}")

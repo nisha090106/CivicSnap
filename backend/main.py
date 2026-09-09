@@ -12,7 +12,7 @@ from botocore.config import Config
 
 from database import engine, Base, check_db_connection, get_db
 from sqlalchemy.orm import Session
-from sqlalchemy import cast, String, text
+from sqlalchemy import cast, String, text, or_
 from auth import get_current_user, get_optional_user, require_citizen, require_authority
 import models
 
@@ -69,6 +69,7 @@ class ReportSubmitRequest(BaseModel):
     citizen_name: Optional[str] = None
     citizen_email: Optional[str] = None
     language: Optional[str] = "en"
+    complaint_report: Optional[str] = None
 
 
 class ReportPreviewRequest(BaseModel):
@@ -221,14 +222,24 @@ def submit_civic_report(
         citizen_email = req.citizen_email or (user.get("email") if user else None)
 
         # Step 4 & 5: Multi-Lingual Formal Letter Generation & Authority Routing
-        complaint_data = generate_llm_complaint_report(
-            soap_data=soap_data,
-            image_url=image_url,
-            user_notes=req.description or "",
-            disclose_identity=req.disclose_identity or False,
-            citizen_name=citizen_name,
-            language=req.language or "en"
-        )
+        # Re-use pre-generated letter from preview if provided by frontend to avoid double LLM calls
+        if req.complaint_report and req.complaint_report.strip():
+            print("[Report Submit] Re-using pre-generated complaint letter from preview cache (0-latency)")
+            complaint_data = {
+                "complaint_report": req.complaint_report.strip(),
+                "authority_name": soap_data.get("department", "Municipal Authority"),
+                "contact_email": os.getenv("TEST_EMAIL_OVERRIDE", "roadtransport@civicsnap.gov.in"),
+                "header_notice": f"The Report is sent {'Disclosed as ' + citizen_name if req.disclose_identity else 'Anonymously'} via CivicSnap"
+            }
+        else:
+            complaint_data = generate_llm_complaint_report(
+                soap_data=soap_data,
+                image_url=image_url,
+                user_notes=req.description or "",
+                disclose_identity=req.disclose_identity or False,
+                citizen_name=citizen_name,
+                language=req.language or "en"
+            )
 
         # Step 6: Emailing Subsystem Pipeline
         email_draft = draft_official_email(complaint_data, soap_data, image_url=get_presigned_image_url(image_url))
@@ -298,21 +309,34 @@ def submit_civic_report(
             detail=f"Report submission failed: {str(err)}"
         )
 
-# 2. CITIZEN REPORTS FEED: GET /api/reports/citizen
+# 2. CITIZEN REPORTS FEED: GET /api/reports/citizen (STRICT CITIZEN ISOLATION)
 @app.get("/api/reports/citizen")
 def get_citizen_reports(
     db: Session = Depends(get_db),
     user: Optional[dict] = Depends(get_optional_user)
 ):
     try:
-        query = db.query(models.Report)
-        if user and user.get("id"):
-            query = query.filter(models.Report.citizen_id == user.get("id"))
-        
+        if not user:
+            return {"role": "citizen", "count": 0, "reports": []}
+
+        user_id = user.get("id")
+        user_email = user.get("email")
+
+        filters = []
+        if user_id:
+            filters.append(models.Report.citizen_id == str(user_id))
+        if user_email:
+            filters.append(models.Report.citizen_email.ilike(user_email.strip()))
+
+        if not filters:
+            return {"role": "citizen", "count": 0, "reports": []}
+
+        query = db.query(models.Report).filter(or_(*filters))
         reports = query.order_by(models.Report.created_at.desc()).all()
         
         return {
             "role": "citizen",
+            "citizen_email": user_email,
             "count": len(reports),
             "reports": [
                 {
@@ -507,7 +531,22 @@ def stream_report_image_binary(
     if os.path.exists(filepath):
         return FileResponse(filepath)
 
+    default_path = os.path.join(STATIC_DIR, "default_issue.jpg")
+    if os.path.exists(default_path):
+        return FileResponse(default_path)
+
     return RedirectResponse(url="/static/default_issue.jpg")
+
+# Static report-images fallback route (prevents 404 for missing legacy report-images)
+@app.get("/static/report-images/{image_name:path}")
+def serve_static_report_image(image_name: str):
+    file_path = os.path.join(STATIC_DIR, "report-images", image_name)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    default_path = os.path.join(STATIC_DIR, "default_issue.jpg")
+    if os.path.exists(default_path):
+        return FileResponse(default_path)
+    raise HTTPException(status_code=404, detail="Image not found")
 
 # 5. UPDATE REPORT STATUS: POST /api/reports/{report_id}/status
 @app.post("/api/reports/{report_id}/status")

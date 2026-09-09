@@ -47,7 +47,8 @@ function formatReportDate(isoString) {
 export default function CitizenDashboard() {
   const { user, token, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('feed');
-  const [reports, setReports] = useState([]);
+  const [myReports, setMyReports] = useState([]);
+  const [publicReports, setPublicReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
   const [selectedDetailReport, setSelectedDetailReport] = useState(null);
   const [currentCity, setCurrentCity] = useState('Detecting...');
@@ -60,13 +61,26 @@ export default function CitizenDashboard() {
 
   const fetchReports = () => {
     setLoadingReports(true);
-    // Fetch public reports to display all community issue pins on the map
+    
+    // 1. Fetch strict citizen-isolated reports for "My Reports" feed
+    fetch(`${BACKEND_URL}/api/reports/citizen`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.reports) setMyReports(data.reports);
+      })
+      .catch(err => console.error('[My Reports Fetch Error]:', err));
+
+    // 2. Fetch public reports for Community GIS Map pins
     fetch(`${BACKEND_URL}/api/reports/public`)
       .then(res => res.json())
       .then(data => {
-        if (data.reports) setReports(data.reports);
+        if (data.reports) setPublicReports(data.reports);
       })
-      .catch(err => console.error(err))
+      .catch(err => console.error('[Public Map Fetch Error]:', err))
       .finally(() => setLoadingReports(false));
   };
 
@@ -188,7 +202,7 @@ export default function CitizenDashboard() {
                 }`}
             >
               <FileText className="w-4 h-4 text-white" />
-              <span>My Reports ({reports.length})</span>
+              <span>My Reports ({myReports.length})</span>
             </button>
 
             <button
@@ -203,10 +217,10 @@ export default function CitizenDashboard() {
             </button>
           </div>
 
-          {/* My Reports Feed */}
+          {/* My Reports Feed (STRICT CITIZEN ISOLATION) */}
           {activeTab === 'feed' && (
             <div className="space-y-4">
-              {reports.length === 0 ? (
+              {myReports.length === 0 ? (
                 /* Accessible Empty State */
                 <div className="bg-pista-100 rounded-md p-10 md:p-14 border border-pista-400 text-center space-y-4 shadow-md">
                   <div className="w-16 h-16 rounded-md bg-bottle-900 border border-bottle-800 flex items-center justify-center text-pista-300 mx-auto shadow-inner">
@@ -228,7 +242,7 @@ export default function CitizenDashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {reports.map((report, i) => {
+                  {myReports.map((report, i) => {
                     const imageUrl = getFullImageUrl(report.image_url, BACKEND_URL);
                     const mapsUrl = `https://www.google.com/maps?q=${report.latitude || 19.0760},${report.longitude || 72.8777}`;
 
@@ -322,17 +336,17 @@ export default function CitizenDashboard() {
               
               {/* Left 2 Cols: Interactive GIS Map */}
               <div className="lg:col-span-2 space-y-4">
-                <CommunityMap reports={reports} />
+                <CommunityMap reports={publicReports} />
               </div>
 
-              {/* Right Col: Live Reports (124) Sidebar */}
+              {/* Right Col: Live Reports Sidebar */}
               <div className="bg-white rounded-2xl p-4 border border-pista-400 shadow-md space-y-4 flex flex-col justify-between">
                 
                 <div className="space-y-4">
                   {/* Live Reports Header with + New Report Button */}
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-black text-[#072818] tracking-tight">
-                      Live Reports ({reports.length || 124})
+                      Live Reports ({publicReports.length})
                     </h3>
                     <button
                       onClick={() => setIsReportModalOpen(true)}
@@ -361,7 +375,7 @@ export default function CitizenDashboard() {
 
                   {/* Sidebar Reports List */}
                   <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
-                    {(reports.length > 0 ? reports : [
+                    {(publicReports.length > 0 ? publicReports : [
                       {
                         id: 'CS-2025-1483',
                         category: 'Water Leakage',
