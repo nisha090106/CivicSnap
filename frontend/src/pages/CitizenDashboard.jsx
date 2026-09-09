@@ -102,9 +102,9 @@ export default function CitizenDashboard() {
         <div className="flex items-center space-x-6">
           <div className="flex items-center">
             <img
-              src="/cs-logo-white.png"
+              src="/civicsnap_logo_bw.png"
               alt="CivicSnap"
-              className="h-8 md:h-9 w-auto object-contain transition hover:scale-105"
+              className="h-9 w-auto object-contain bg-white p-1 rounded-xl border border-slate-300 shadow-sm transition hover:scale-105"
             />
           </div>
 
