@@ -446,23 +446,41 @@ export default function ReportIssueModal({ isOpen, onClose }) {
       <div className="bg-pista-100 max-w-lg w-full rounded-md border border-pista-400 shadow-2xl relative my-auto overflow-hidden">
 
         {/* Header */}
-        <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-md bg-bottle-800 border border-bottle-700 flex items-center justify-center text-white">
-              <Camera className="w-6 h-6" />
+        <div className="bg-[#072818] text-white p-4 border-b border-bottle-800 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-black text-base shadow-md">
+              🍃
             </div>
             <div>
-              <h3 className="font-black text-xl text-white">Report Civic Issue</h3>
-              <p className="text-xs text-pista-300 font-extrabold">Device Camera & Image Upload Portal</p>
+              <h3 className="font-black text-lg text-white leading-tight">CivicSnap</h3>
+              <p className="text-[10px] text-emerald-300 font-extrabold uppercase tracking-wider">Report &bull; Track &bull; Build Better</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="w-10 h-10 min-h-[44px] min-w-[44px] rounded-full bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition cursor-pointer"
+            className="w-8 h-8 rounded-full bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition cursor-pointer"
             aria-label="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Stepper Header Bar */}
+        <div className="bg-pista-200 px-4 py-2.5 border-b border-pista-300 flex items-center justify-center gap-3 text-xs font-black">
+          <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full ${step === 1 ? 'bg-[#072818] text-white shadow-xs' : 'bg-pista-300 text-slate-700'}`}>
+            <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">1</span>
+            <span>Photo</span>
+          </div>
+          <div className="w-4 h-0.5 bg-pista-400"></div>
+          <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full ${step === 2 ? 'bg-[#072818] text-white shadow-xs' : 'bg-pista-300 text-slate-700'}`}>
+            <span className="w-4 h-4 rounded-full bg-slate-400 text-white flex items-center justify-center text-[10px]">2</span>
+            <span>Details</span>
+          </div>
+          <div className="w-4 h-0.5 bg-pista-400"></div>
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-pista-300 text-slate-700">
+            <span className="w-4 h-4 rounded-full bg-slate-400 text-white flex items-center justify-center text-[10px]">3</span>
+            <span>Submit</span>
+          </div>
         </div>
 
         <div className="p-6 space-y-6">

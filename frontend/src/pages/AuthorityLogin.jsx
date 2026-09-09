@@ -3,25 +3,36 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, Building2, Mail, Lock, ArrowRight } from 'lucide-react';
 
-const DEPARTMENTS = [
-  "Road & Transport",
-  "Garbage & Waste Management",
-  "Food & Drug Authority",
-  "Forest Department",
-  "Municipal Corporation",
-  "Nagar Panchayat",
-  "Gram Panchayat"
-];
+const DEPARTMENT_CREDENTIALS = {
+  "Road & Transport": { email: "roadtransport@civicsnap.gov.in", password: "RoadTransport@2026!" },
+  "Garbage & Waste Management": { email: "garbagewaste@civicsnap.gov.in", password: "GarbageWaste@2026!" },
+  "Food & Drug Authority": { email: "fooddrug@civicsnap.gov.in", password: "FoodDrug@2026!" },
+  "Forest Department": { email: "forest@civicsnap.gov.in", password: "ForestDept@2026!" },
+  "Municipal Corporation": { email: "municipal@civicsnap.gov.in", password: "Municipal@2026!" },
+  "Nagar Panchayat": { email: "nagarpanchayat@civicsnap.gov.in", password: "NagarPanchayat@2026!" },
+  "Gram Panchayat": { email: "grampanchayat@civicsnap.gov.in", password: "GramPanchayat@2026!" },
+};
+
+const DEPARTMENTS = Object.keys(DEPARTMENT_CREDENTIALS);
 
 export default function AuthorityLogin() {
   const { emailSignIn } = useAuth();
   const navigate = useNavigate();
 
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(DEPARTMENT_CREDENTIALS[DEPARTMENTS[0]].email);
+  const [password, setPassword] = useState(DEPARTMENT_CREDENTIALS[DEPARTMENTS[0]].password);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleDepartmentSelect = (selectedDept) => {
+    setDepartment(selectedDept);
+    const creds = DEPARTMENT_CREDENTIALS[selectedDept];
+    if (creds) {
+      setEmail(creds.email);
+      setPassword(creds.password);
+    }
+  };
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();
@@ -85,7 +96,7 @@ export default function AuthorityLogin() {
             </label>
             <select
               value={department}
-              onChange={(e) => setDepartment(e.target.value)}
+              onChange={(e) => handleDepartmentSelect(e.target.value)}
               className="w-full px-4 py-3.5 bg-white border border-pista-400 rounded-xl text-slate-900 font-extrabold focus:outline-none focus:border-bottle-800 text-sm cursor-pointer"
             >
               {DEPARTMENTS.map(dept => (

@@ -4,15 +4,17 @@ import { useAuth } from '../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck, Camera } from 'lucide-react';
 
-const DEPARTMENTS = [
-  'Road & Transport',
-  'Garbage & Waste Management',
-  'Food & Drug Authority',
-  'Forest Department',
-  'Municipal Corporation',
-  'Nagar Panchayat',
-  'Gram Panchayat'
-];
+const DEPARTMENT_CREDENTIALS = {
+  'Road & Transport': { email: 'roadtransport@civicsnap.gov.in', password: 'RoadTransport@2026!' },
+  'Garbage & Waste Management': { email: 'garbagewaste@civicsnap.gov.in', password: 'GarbageWaste@2026!' },
+  'Food & Drug Authority': { email: 'fooddrug@civicsnap.gov.in', password: 'FoodDrug@2026!' },
+  'Forest Department': { email: 'forest@civicsnap.gov.in', password: 'ForestDept@2026!' },
+  'Municipal Corporation': { email: 'municipal@civicsnap.gov.in', password: 'Municipal@2026!' },
+  'Nagar Panchayat': { email: 'nagarpanchayat@civicsnap.gov.in', password: 'NagarPanchayat@2026!' },
+  'Gram Panchayat': { email: 'grampanchayat@civicsnap.gov.in', password: 'GramPanchayat@2026!' }
+};
+
+const DEPARTMENTS = Object.keys(DEPARTMENT_CREDENTIALS);
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
   const { sendOtp, verifyOtp, googleSignIn, emailSignIn, emailSignUp } = useAuth();
@@ -26,6 +28,17 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+
+  const handleDeptSelect = (selectedDept) => {
+    setDepartment(selectedDept);
+    if (role === 'authority') {
+      const creds = DEPARTMENT_CREDENTIALS[selectedDept];
+      if (creds) {
+        setEmail(creds.email);
+        setPassword(creds.password);
+      }
+    }
+  };
 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpStep, setOtpStep] = useState('send');
@@ -220,6 +233,11 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
                 setRole('authority');
                 setMode('login');
                 setAuthMethod('email');
+                const creds = DEPARTMENT_CREDENTIALS[department] || DEPARTMENT_CREDENTIALS[DEPARTMENTS[0]];
+                if (creds) {
+                  setEmail(creds.email);
+                  setPassword(creds.password);
+                }
               }}
               className={`py-2 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer ${role === 'authority'
                 ? 'bg-bottle-800 text-white shadow-md'
@@ -238,7 +256,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
               </label>
               <select
                 value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                onChange={(e) => handleDeptSelect(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-slate-900 font-bold text-xs focus:outline-none focus:border-bottle-800 cursor-pointer"
               >
                 {DEPARTMENTS.map((dept) => (

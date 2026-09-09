@@ -47,10 +47,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static uploads directory for serving uploaded evidence photos
+# Mount static uploads directory & static assets directory for serving evidence photos & default fallback images
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 class ClassifyReportRequest(BaseModel):
     image_data: Optional[str] = None
@@ -335,6 +338,39 @@ def get_citizen_reports(
     except Exception as e:
         print(f"[Citizen Reports Error]: {e}")
         return {"role": "citizen", "count": 0, "reports": []}
+
+# 2B. PUBLIC ALL REPORTS FEED (FOR MAP & LIVE FEED): GET /api/reports/public
+@app.get("/api/reports/public")
+@app.get("/api/reports/all")
+def get_public_all_reports(db: Session = Depends(get_db)):
+    try:
+        reports = db.query(models.Report).order_by(models.Report.created_at.desc()).all()
+        return {
+            "count": len(reports),
+            "reports": [
+                {
+                    "id": str(r.report_id),
+                    "report_id": str(r.report_id),
+                    "category": r.category,
+                    "department": r.department,
+                    "description": r.description,
+                    "status": r.status or "Pending",
+                    "latitude": r.latitude,
+                    "longitude": r.longitude,
+                    "image_url": get_presigned_image_url(r.image_url),
+                    "city_name": r.city_name,
+                    "soap_transcript": r.soap_transcript,
+                    "complaint_report": r.complaint_report,
+                    "critic_verdict": r.critic_verdict,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "vote_count": r.vote_count or 0
+                }
+                for r in reports
+            ]
+        }
+    except Exception as e:
+        print(f"[Public Reports Error]: {e}")
+        return {"count": 0, "reports": []}
 
 # 3. AUTHORITY DEPARTMENT FEED: GET /api/reports/authority
 @app.get("/api/reports/authority")

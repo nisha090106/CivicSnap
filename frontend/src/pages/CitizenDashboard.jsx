@@ -4,6 +4,7 @@ import CommunityMap from '../components/CommunityMap';
 import ReportIssueModal from '../components/ReportIssueModal';
 import NotificationsModal from '../components/NotificationsModal';
 import ProfileModal from '../components/ProfileModal';
+import { getSystemLocation } from '../utils/locationHelper';
 import {
   Camera,
   MapPin,
@@ -49,6 +50,7 @@ export default function CitizenDashboard() {
   const [reports, setReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
   const [selectedDetailReport, setSelectedDetailReport] = useState(null);
+  const [currentCity, setCurrentCity] = useState('Detecting...');
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
@@ -57,22 +59,20 @@ export default function CitizenDashboard() {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
   const fetchReports = () => {
-    if (token) {
-      setLoadingReports(true);
-      fetch(`${BACKEND_URL}/api/reports/citizen`, {
-        headers: { Authorization: `Bearer ${token}` }
+    setLoadingReports(true);
+    // Fetch public reports to display all community issue pins on the map
+    fetch(`${BACKEND_URL}/api/reports/public`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.reports) setReports(data.reports);
       })
-        .then(res => res.json())
-        .then(data => {
-          if (data.reports) setReports(data.reports);
-        })
-        .catch(err => console.error(err))
-        .finally(() => setLoadingReports(false));
-    }
+      .catch(err => console.error(err))
+      .finally(() => setLoadingReports(false));
   };
 
   useEffect(() => {
     fetchReports();
+    getSystemLocation().then((loc) => setCurrentCity(loc.city));
     const handleRefresh = () => fetchReports();
     window.addEventListener('civicsnap:reportSubmitted', handleRefresh);
     return () => window.removeEventListener('civicsnap:reportSubmitted', handleRefresh);
@@ -81,47 +81,59 @@ export default function CitizenDashboard() {
   return (
     <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between pb-36 md:pb-20 font-sans selection:bg-pista-300 overflow-y-auto w-full">
 
-      {/* 1. TOP HEADER NAVIGATION BAR — DARK BOTTLE GREEN */}
-      <header className="sticky top-0 z-[100] bg-bottle-900 border-b border-bottle-800 px-4 md:px-8 py-3.5 flex items-center justify-between shadow-md text-white">
+      {/* 1. TOP HEADER NAVIGATION BAR — DARK BOTTLE GREEN (#072818) */}
+      <header className="sticky top-0 z-[100] bg-[#072818] border-b border-bottle-800 px-4 md:px-8 py-3 flex items-center justify-between shadow-md text-white">
 
         {/* Brand */}
-        <div className="flex items-center space-x-3">
-          <div className="w-11 h-11 rounded-md bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-2xl shadow-inner">
-            <Camera className="w-6 h-6" />
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-black text-base shadow-md">
+              🍃
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 leading-tight">
+                CivicSnap
+              </h1>
+              <p className="text-[9px] text-emerald-300 font-extrabold uppercase tracking-wider">See it &bull; Snap it &bull; Change it</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              CivicSnap
-            </h1>
-            <p className="text-[11px] text-pista-300 font-extrabold uppercase tracking-widest">Citizen Reporting Portal</p>
-          </div>
+
+          {/* Desktop Nav Links */}
+          <nav className="hidden lg:flex items-center space-x-5 text-xs font-black text-slate-300">
+            <button onClick={() => setActiveTab('map')} className={`hover:text-white transition cursor-pointer ${activeTab === 'map' ? 'text-white border-b-2 border-emerald-400 pb-0.5' : ''}`}>Map</button>
+            <button onClick={() => setActiveTab('feed')} className={`hover:text-white transition cursor-pointer ${activeTab === 'feed' ? 'text-white border-b-2 border-emerald-400 pb-0.5' : ''}`}>My Reports</button>
+            <button onClick={() => setActiveTab('feed')} className={`hover:text-white transition cursor-pointer ${activeTab === 'feed' ? 'text-white border-b-2 border-emerald-400 pb-0.5' : ''}`}>Community Feed</button>
+            <button onClick={() => setIsNotifModalOpen(true)} className="hover:text-white transition cursor-pointer">Alerts</button>
+            <button onClick={() => setIsProfileModalOpen(true)} className="hover:text-white transition cursor-pointer">Profile</button>
+          </nav>
         </div>
 
         {/* Top Right Quick Actions — Dark Green Buttons */}
-        <div className="flex items-center space-x-2.5">
+        <div className="flex items-center space-x-3">
 
           {/* Notifications Bell Button */}
           <button
             onClick={() => setIsNotifModalOpen(true)}
-            className="w-12 h-12 min-h-[48px] min-w-[48px] rounded-md bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center justify-center text-white transition relative cursor-pointer shadow-sm"
+            className="p-2 rounded-full bg-[#0C3D24] hover:bg-emerald-900 border border-emerald-800 flex items-center justify-center text-white transition relative cursor-pointer shadow-sm"
             aria-label="View notifications"
           >
-            <Bell className="w-6 h-6 text-white" />
-            <span className="w-2.5 h-2.5 bg-pista-300 rounded-full absolute top-3 right-3 ring-2 ring-bottle-900"></span>
+            <Bell className="w-4 h-4 text-white" />
+            <span className="w-2 h-2 bg-emerald-400 rounded-full absolute top-1 right-1"></span>
           </button>
 
           {/* User Profile Button */}
           <button
             onClick={() => setIsProfileModalOpen(true)}
-            className="h-12 min-h-[48px] px-3.5 rounded-md bg-bottle-800 hover:bg-bottle-700 border border-bottle-700 flex items-center gap-2 text-white transition cursor-pointer shadow-sm"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[#0C3D24] hover:bg-emerald-900 border border-emerald-800/60 rounded-full text-xs font-bold transition cursor-pointer shadow-sm"
             aria-label="View profile"
           >
-            <div className="w-7 h-7 rounded-full bg-bottle-950 text-pista-300 flex items-center justify-center text-xs font-black shadow-xs">
-              {user?.name ? user.name[0].toUpperCase() : 'C'}
+            <div className="w-6 h-6 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[10px] font-black shadow-xs">
+              👤
             </div>
-            <span className="text-xs font-black hidden sm:inline text-white max-w-[120px] truncate">
-              {user?.name || 'Citizen'}
-            </span>
+            <div className="text-left hidden sm:block">
+              <div className="text-[11px] font-black text-white leading-tight">{user?.name || 'Municipal Corporation'}</div>
+              <div className="text-[9px] text-emerald-300 font-semibold leading-tight">{currentCity}</div>
+            </div>
           </button>
 
         </div>
@@ -304,10 +316,137 @@ export default function CitizenDashboard() {
             </div>
           )}
 
-          {/* Community Map Tab */}
+          {/* Community Map Tab / Desktop Widescreen Layout */}
           {activeTab === 'map' && (
-            <div className="space-y-4">
-              <CommunityMap reports={reports} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Left 2 Cols: Interactive GIS Map */}
+              <div className="lg:col-span-2 space-y-4">
+                <CommunityMap reports={reports} />
+              </div>
+
+              {/* Right Col: Live Reports (124) Sidebar */}
+              <div className="bg-white rounded-2xl p-4 border border-pista-400 shadow-md space-y-4 flex flex-col justify-between">
+                
+                <div className="space-y-4">
+                  {/* Live Reports Header with + New Report Button */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-[#072818] tracking-tight">
+                      Live Reports ({reports.length || 124})
+                    </h3>
+                    <button
+                      onClick={() => setIsReportModalOpen(true)}
+                      className="px-3 py-1.5 bg-[#072818] hover:bg-[#0D472B] text-white text-xs font-black rounded-xl transition shadow-xs flex items-center gap-1 cursor-pointer border border-bottle-700"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>+ New Report</span>
+                    </button>
+                  </div>
+
+                  {/* Category Pills Selector */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-black">
+                    {['All', 'Water', 'Garbage', 'Roads', 'Electricity', 'Drains', 'Parks', 'Others'].map((cat, i) => (
+                      <button
+                        key={cat}
+                        className={`px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition ${
+                          i === 0
+                            ? 'bg-[#072818] text-white shadow-2xs'
+                            : 'bg-pista-100 text-slate-700 hover:bg-pista-200 border border-pista-300'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Sidebar Reports List */}
+                  <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                    {(reports.length > 0 ? reports : [
+                      {
+                        id: 'CS-2025-1483',
+                        category: 'Water Leakage',
+                        city_name: 'Andheri West, Mumbai',
+                        created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+                        status: 'In Progress',
+                        image_url: 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=600&auto=format&fit=crop&q=80'
+                      },
+                      {
+                        id: 'CS-2025-1482',
+                        category: 'Garbage Overflow',
+                        city_name: 'Bandra East, Mumbai',
+                        created_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
+                        status: 'Resolved',
+                        image_url: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=600&auto=format&fit=crop&q=80'
+                      },
+                      {
+                        id: 'CS-2025-1481',
+                        category: 'Street Light Not Working',
+                        city_name: 'Powai, Mumbai',
+                        created_at: new Date(Date.now() - 7 * 3600 * 1000).toISOString(),
+                        status: 'Pending',
+                        image_url: 'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?w=600&auto=format&fit=crop&q=80'
+                      },
+                      {
+                        id: 'CS-2025-1480',
+                        category: 'Pothole on Road',
+                        city_name: 'Ghatkopar, Mumbai',
+                        created_at: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+                        status: 'In Progress',
+                        image_url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop&q=80'
+                      }
+                    ]).map((item, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedDetailReport(item)}
+                        className="p-2.5 bg-pista-50/70 hover:bg-pista-100 rounded-xl border border-pista-300 flex items-center justify-between gap-3 transition cursor-pointer shadow-2xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-slate-900 overflow-hidden shrink-0 border border-pista-400">
+                            <img
+                              src={getFullImageUrl(item.image_url, BACKEND_URL) || 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=600&auto=format&fit=crop&q=80'}
+                              alt={item.category}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-mono font-bold text-slate-500">#{item.id}</span>
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${
+                                item.status === 'Resolved'
+                                  ? 'bg-emerald-100 text-emerald-900'
+                                  : item.status === 'In Progress'
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : 'bg-slate-100 text-slate-800'
+                              }`}>
+                                {item.status}
+                              </span>
+                            </div>
+
+                            <h4 className="text-xs font-black text-[#072818] mt-0.5">{item.category}</h4>
+                            <p className="text-[10px] text-slate-600 font-semibold">{item.city_name || 'Mumbai'}</p>
+                          </div>
+                        </div>
+
+                        <span className="text-slate-400 font-black text-sm">&gt;</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bottom Skyline Card inside Sidebar */}
+                <div className="bg-[#E0F0DA] p-3 rounded-xl border border-pista-300 flex items-center justify-between text-[#072818] mt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🍃</span>
+                    <div>
+                      <span className="font-black text-xs block leading-tight">CivicSnap</span>
+                      <span className="text-[9px] font-semibold text-slate-700 block">Citizens Today, Better Cities Tomorrow</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
           )}
 
