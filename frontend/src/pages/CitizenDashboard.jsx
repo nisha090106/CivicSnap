@@ -61,7 +61,7 @@ export default function CitizenDashboard() {
 
   const fetchReports = () => {
     setLoadingReports(true);
-    
+
     // 1. Fetch strict citizen-isolated reports for "My Reports" feed
     fetch(`${BACKEND_URL}/api/reports/citizen`, {
       headers: {
@@ -100,25 +100,21 @@ export default function CitizenDashboard() {
 
         {/* Brand */}
         <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-black text-base shadow-md">
-              🍃
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 leading-tight">
-                CivicSnap
-              </h1>
-              <p className="text-[9px] text-emerald-300 font-extrabold uppercase tracking-wider">See it &bull; Snap it &bull; Change it</p>
-            </div>
+          <div className="flex items-center">
+            <img
+              src="/cs-logo-white.png"
+              alt="CivicSnap"
+              className="h-8 md:h-9 w-auto object-contain transition hover:scale-105"
+            />
           </div>
 
           {/* Desktop Nav Links */}
           <nav className="hidden lg:flex items-center space-x-5 text-xs font-black text-slate-300">
             <button onClick={() => setActiveTab('map')} className={`hover:text-white transition cursor-pointer ${activeTab === 'map' ? 'text-white border-b-2 border-emerald-400 pb-0.5' : ''}`}>Map</button>
             <button onClick={() => setActiveTab('feed')} className={`hover:text-white transition cursor-pointer ${activeTab === 'feed' ? 'text-white border-b-2 border-emerald-400 pb-0.5' : ''}`}>My Reports</button>
-            <button onClick={() => setActiveTab('feed')} className={`hover:text-white transition cursor-pointer ${activeTab === 'feed' ? 'text-white border-b-2 border-emerald-400 pb-0.5' : ''}`}>Community Feed</button>
-            <button onClick={() => setIsNotifModalOpen(true)} className="hover:text-white transition cursor-pointer">Alerts</button>
-            <button onClick={() => setIsProfileModalOpen(true)} className="hover:text-white transition cursor-pointer">Profile</button>
+            {/* <button onClick={() => setActiveTab('feed')} className={`hover:text-white transition cursor-pointer ${activeTab === 'feed' ? 'text-white border-b-2 border-emerald-400 pb-0.5' : ''}`}>Community Feed</button> */}
+            {/* <button onClick={() => setIsNotifModalOpen(true)} className="hover:text-white transition cursor-pointer">Alerts</button> */}
+            {/* <button onClick={() => setIsProfileModalOpen(true)} className="hover:text-white transition cursor-pointer">Profile</button> */}
           </nav>
         </div>
 
@@ -262,10 +258,10 @@ export default function CitizenDashboard() {
                             </div>
 
                             <span className={`text-[10px] px-2.5 py-1 rounded-md font-extrabold shrink-0 ${report.status === 'Resolved'
-                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                                : report.status === 'In Progress'
-                                  ? 'bg-blue-100 text-blue-900 border border-blue-300'
-                                  : 'bg-amber-100 text-amber-900 border border-amber-300'
+                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                              : report.status === 'In Progress'
+                                ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                                : 'bg-amber-100 text-amber-900 border border-amber-300'
                               }`}>
                               {report.status || 'Pending'}
                             </span>
@@ -333,7 +329,7 @@ export default function CitizenDashboard() {
           {/* Community Map Tab / Desktop Widescreen Layout */}
           {activeTab === 'map' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
+
               {/* Left 2 Cols: Interactive GIS Map */}
               <div className="lg:col-span-2 space-y-4">
                 <CommunityMap reports={publicReports} />
@@ -341,7 +337,7 @@ export default function CitizenDashboard() {
 
               {/* Right Col: Live Reports Sidebar */}
               <div className="bg-white rounded-2xl p-4 border border-pista-400 shadow-md space-y-4 flex flex-col justify-between">
-                
+
                 <div className="space-y-4">
                   {/* Live Reports Header with + New Report Button */}
                   <div className="flex items-center justify-between">
@@ -362,11 +358,10 @@ export default function CitizenDashboard() {
                     {['All', 'Water', 'Garbage', 'Roads', 'Electricity', 'Drains', 'Parks', 'Others'].map((cat, i) => (
                       <button
                         key={cat}
-                        className={`px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition ${
-                          i === 0
-                            ? 'bg-[#072818] text-white shadow-2xs'
-                            : 'bg-pista-100 text-slate-700 hover:bg-pista-200 border border-pista-300'
-                        }`}
+                        className={`px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition ${i === 0
+                          ? 'bg-[#072818] text-white shadow-2xs'
+                          : 'bg-pista-100 text-slate-700 hover:bg-pista-200 border border-pista-300'
+                          }`}
                       >
                         {cat}
                       </button>
@@ -426,13 +421,12 @@ export default function CitizenDashboard() {
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] font-mono font-bold text-slate-500">#{item.id}</span>
-                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${
-                                item.status === 'Resolved'
-                                  ? 'bg-emerald-100 text-emerald-900'
-                                  : item.status === 'In Progress'
+                              <span className={`text-[9px] px-1.5 py-0.2 rounded font-extrabold ${item.status === 'Resolved'
+                                ? 'bg-emerald-100 text-emerald-900'
+                                : item.status === 'In Progress'
                                   ? 'bg-amber-100 text-amber-900'
                                   : 'bg-slate-100 text-slate-800'
-                              }`}>
+                                }`}>
                                 {item.status}
                               </span>
                             </div>

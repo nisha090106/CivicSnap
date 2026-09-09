@@ -20,12 +20,12 @@ export default function Navbar({ tabs = null }) {
   return (
     <header className="sticky top-0 z-[100] bg-bottle-900 border-b border-bottle-800 px-4 sm:px-8 py-4 sm:py-5 shadow-md text-white">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Camera className="w-6 h-6 text-white" />
-          <div>
-            <span className="text-2xl lg:text-3xl font-black tracking-tight text-white block leading-tight">CivicSnap</span>
-            <span className="text-[11px] lg:text-xs font-extrabold text-pista-300 uppercase tracking-widest block">AI Civic Issue Reporting</span>
-          </div>
+        <div className="flex items-center">
+          <img
+            src="/cs-logo-white.png"
+            alt="CivicSnap Logo"
+            className="h-9 sm:h-10 w-auto object-contain transition hover:scale-105"
+          />
         </div>
 
         {/* Desktop tabs */}

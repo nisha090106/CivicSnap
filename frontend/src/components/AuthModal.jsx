@@ -188,16 +188,12 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     <div className="fixed inset-0 z-[5000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto font-sans">
       <div className="bg-pista-100 rounded-md border border-pista-400 max-w-md w-full shadow-2xl relative my-auto overflow-hidden">
         <div className="bg-bottle-900 text-white p-6 border-b border-bottle-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-md bg-bottle-800 border border-bottle-700 flex items-center justify-center font-bold text-white text-xl shadow-inner">
-              <Camera className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-black text-xl text-white">
-                {mode === 'login' ? 'Welcome Back' : 'Create CivicSnap Account'}
-              </h3>
-              <p className="text-xs text-pista-300 font-extrabold">Public Civic Issue Platform</p>
-            </div>
+          <div className="flex items-center">
+            <img
+              src="/cs-logo-white.png"
+              alt="CivicSnap"
+              className="h-9 w-auto object-contain"
+            />
           </div>
 
           <button

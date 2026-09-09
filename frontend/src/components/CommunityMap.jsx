@@ -27,7 +27,7 @@ const createStatusIcon = (status) => {
   const color = s === 'resolved' ? '#10B981' : s === 'in progress' ? '#F59E0B' : '#EF4444';
   return L.divIcon({
     className: 'custom-map-pin',
-    html: `<div style="background-color: ${color}; width: 26px; height: 26px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">📍</div>`,
+    html: `<div style="background-color: ${color}; width: 26px; height: 26px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13]
   });

@@ -130,17 +130,13 @@ export default function AuthorityDashboard() {
       <header className="bg-[#072818] text-white px-6 py-3.5 flex items-center justify-between shadow-lg border-b border-bottle-800">
         <div className="flex items-center space-x-8">
           
-          {/* Brand Logo & Tagline */}
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-black text-lg shadow-md">
-              🍃
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-1.5">
-                CivicSnap
-              </h1>
-              <p className="text-[9px] text-emerald-300 font-extrabold uppercase tracking-wider">People &bull; Issues &bull; Progress</p>
-            </div>
+          {/* Brand Logo */}
+          <div className="flex items-center">
+            <img
+              src="/cs-logo-white.png"
+              alt="CivicSnap"
+              className="h-8 md:h-9 w-auto object-contain transition hover:scale-105"
+            />
           </div>
 
           {/* Navigation Links */}
@@ -340,33 +336,33 @@ export default function AuthorityDashboard() {
             </button>
             <button
               onClick={() => setActiveTab('map')}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap ${
+              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'map'
                   ? 'bg-[#072818] text-white shadow-xs'
                   : 'bg-pista-100 text-slate-700 hover:bg-pista-200'
               }`}
             >
-              Interactive GIS Map 🗺️
+              <MapPin className="w-3.5 h-3.5" /> Interactive GIS Map
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap ${
+              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'analytics'
                   ? 'bg-[#072818] text-white shadow-xs'
                   : 'bg-pista-100 text-slate-700 hover:bg-pista-200'
               }`}
             >
-              Analytics 📊
+              <BarChart3 className="w-3.5 h-3.5" /> Analytics
             </button>
             <button
               onClick={() => setActiveTab('citizens')}
-              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap ${
+              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'citizens'
                   ? 'bg-[#072818] text-white shadow-xs'
                   : 'bg-pista-100 text-slate-700 hover:bg-pista-200'
               }`}
             >
-              Citizens Hub 👥
+              <Users className="w-3.5 h-3.5" /> Citizens Hub
             </button>
           </div>
 

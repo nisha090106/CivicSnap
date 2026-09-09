@@ -448,14 +448,12 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
         {/* Header */}
         <div className="bg-[#072818] text-white p-4 border-b border-bottle-800 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-black text-base shadow-md">
-              🍃
-            </div>
-            <div>
-              <h3 className="font-black text-lg text-white leading-tight">CivicSnap</h3>
-              <p className="text-[10px] text-emerald-300 font-extrabold uppercase tracking-wider">Report &bull; Track &bull; Build Better</p>
-            </div>
+          <div className="flex items-center">
+            <img
+              src="/cs-logo-white.png"
+              alt="CivicSnap"
+              className="h-8 w-auto object-contain"
+            />
           </div>
           <button
             onClick={handleClose}
