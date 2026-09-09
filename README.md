@@ -39,6 +39,8 @@ CivicSnap is a state-of-the-art, production-grade civic engagement platform that
 
 ## 🏗️ System Architecture & Workflow
 
+![CivicSnap High-Level System Architecture Diagram](./CP-High-Level-Design-Updated.png)
+
 ```mermaid
 flowchart TD
     A["👤 Citizen User Interface (React + Vite)"] -->|1. Capture Photo & Location| B["📷 Evidence Capture & Geolocation"]
@@ -57,6 +59,7 @@ flowchart TD
     L["🏛️ Authority Portal"] -->|11. POST /api/reports/{id}/status| G
     G -->|12. Status Change Email| M["📩 Citizen Status Update Email (In Progress / Resolved)"]
 ```
+
 
 ---
 
