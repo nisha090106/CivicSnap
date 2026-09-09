@@ -41,26 +41,6 @@ CivicSnap is a state-of-the-art, production-grade civic engagement platform that
 
 ![CivicSnap High-Level System Architecture Diagram](./CP-High-Level-Design-Updated.png)
 
-```mermaid
-flowchart TD
-    A["👤 Citizen User Interface (React + Vite)"] -->|1. Capture Photo & Location| B["📷 Evidence Capture & Geolocation"]
-    B -->|2. POST /api/reports/classify| C["🧠 Local PyTorch Vision Engine (CLIP CPU)"]
-    C -->|3. Auto-Detect Category & Department| D["🏷️ Winner-Takes-All Domain Evaluator"]
-    
-    D -->|4. Generate Parallel Previews| E["🌐 Multi-Lingual Formal Letter Engine (EN, HI, MR, GU, TA)"]
-    E -->|5. Store Preview Cache| F["💾 Session Storage Cache (0ms Switch)"]
-    
-    F -->|6. POST /api/reports/submit| G["⚙️ Core FastAPI Backend (Port 5000)"]
-    G -->|7. Store Metadata| H["🗄️ PostgreSQL Database"]
-    G -->|8. Store Evidence| I["☁️ AWS S3 / Local 15-Day TTL Storage"]
-    G -->|9. Audit & Dispatch| J["🛡️ Anti-Hallucination Critic"]
-    J -->|10. Dispatch Email| K["📧 Resend Email Dispatcher (Authority & Citizen)"]
-    
-    L["🏛️ Authority Portal"] -->|11. POST /api/reports/{id}/status| G
-    G -->|12. Status Change Email| M["📩 Citizen Status Update Email (In Progress / Resolved)"]
-```
-
-
 ---
 
 ## 📁 Repository Structure
