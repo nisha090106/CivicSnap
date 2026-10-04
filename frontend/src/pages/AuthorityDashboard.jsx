@@ -70,8 +70,7 @@ export default function AuthorityDashboard() {
     }
     if (activeTab === 'priority') {
       const sev = (report.severity_level || '').toLowerCase();
-      const st = (report.status || '').toLowerCase();
-      return sev === 'high' || sev === 'critical' || st === 'pending';
+      return report.urgency_flagged === true || sev === 'high' || sev === 'critical';
     }
     return true;
   });
@@ -378,7 +377,7 @@ export default function AuthorityDashboard() {
                   📍 {reports.length} Active Pins
                 </span>
               </div>
-              <CommunityMap reports={reports} />
+              <CommunityMap reports={reports} authorityContext={true} />
             </div>
           )}
 
@@ -525,6 +524,11 @@ export default function AuthorityDashboard() {
                         <span className={`text-[10px] px-2 py-0.5 rounded-md font-extrabold border ${statusClass}`}>
                           {report.status}
                         </span>
+                        {report.urgency_flagged === true && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold border bg-red-100 text-red-900 border-red-300">
+                            URGENT
+                          </span>
+                        )}
                       </div>
 
                       <h4 className="text-sm font-black text-[#072818]">{report.category}</h4>
@@ -610,6 +614,25 @@ export default function AuthorityDashboard() {
                   📍 {selectedReport.city_name || 'Mumbai'}
                 </span>
               </div>
+
+              {(selectedReport.ai_severity_confidence != null || selectedReport.ai_severity_reasoning != null) && (
+                <div className="p-4 bg-pista-50 rounded-2xl border border-pista-300 space-y-2">
+                  <span className="text-[11px] font-black text-[#072818] uppercase block">AI Severity Assessment</span>
+                  {selectedReport.severity_level != null && (
+                    <p className="text-xs font-bold text-slate-800">Severity: {selectedReport.severity_level}</p>
+                  )}
+                  {selectedReport.ai_severity_confidence != null && (
+                    <p className="text-xs font-bold text-slate-800">
+                      Confidence: {Math.round(selectedReport.ai_severity_confidence * 100)}%
+                    </p>
+                  )}
+                  {selectedReport.ai_severity_reasoning != null && (
+                    <p className="text-xs font-semibold text-slate-700 leading-relaxed">
+                      {selectedReport.ai_severity_reasoning}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Status Updater Buttons */}
               <div className="p-4 bg-pista-50 rounded-2xl border border-pista-300 space-y-2">

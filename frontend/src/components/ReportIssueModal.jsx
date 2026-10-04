@@ -40,6 +40,13 @@ const LANGUAGES = [
   { id: 'ta', label: 'தமிழ் (Tamil)', flag: '🛕' },
 ];
 
+const SEVERITY_STYLES = {
+  low: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+  medium: 'bg-yellow-100 text-yellow-900 border-yellow-300',
+  high: 'bg-orange-100 text-orange-900 border-orange-300',
+  critical: 'bg-red-100 text-red-900 border-red-300'
+};
+
 export default function ReportIssueModal({ isOpen, onClose }) {
   const { user, token } = useAuth();
   const [step, setStep] = useState(1); // 1: Details & Photo, 2: Multi-lingual Letter Preview
@@ -50,13 +57,16 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState(null);
+  const [severityData, setSeverityData] = useState(null);
+  const [severityLoading, setSeverityLoading] = useState(false);
   const [letterCacheMap, setLetterCacheMap] = useState({});
 
-  const CACHE_KEY = 'civicsnap_parallel_preview_cache';
+  const CACHE_KEY = 'civicsnap_parallel_preview_cache_v2';
 
   const purgePreviewCache = () => {
     setLetterCacheMap({});
     setPreviewData(null);
+    setSeverityData(null);
     try {
       sessionStorage.removeItem(CACHE_KEY);
       localStorage.removeItem(CACHE_KEY);
@@ -84,6 +94,41 @@ export default function ReportIssueModal({ isOpen, onClose }) {
   const [isManualOverride, setIsManualOverride] = useState(false);
   const [showModelBreakdown, setShowModelBreakdown] = useState(false);
 
+  const requestImageSeverity = async (imgData, category, textDesc) => {
+    if (!imgData || !category) return null;
+
+    setSeverityLoading(true);
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/reports/preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          image_data: imgData,
+          category,
+          latitude: parseFloat(gpsLocation.lat) || 19.0760,
+          longitude: parseFloat(gpsLocation.lng) || 72.8777,
+          description: textDesc,
+          language: selectedLanguage,
+          severity_only: true
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.severity_result) {
+        setSeverityData(data);
+        return data;
+      }
+    } catch (err) {
+      console.warn('[Image Severity Preview Notice]:', err);
+    } finally {
+      setSeverityLoading(false);
+    }
+    return null;
+  };
+
   const runAIClassification = async (imgData = imageSrc, textDesc = description) => {
     if (!imgData) return;
     setClassifying(true);
@@ -100,6 +145,11 @@ export default function ReportIssueModal({ isOpen, onClose }) {
         if (data.status === 'classified' && data.detected_category && !isManualOverride) {
           setSelectedCategory(data.detected_category);
         }
+        setClassifying(false);
+        const severityCategory = isManualOverride
+          ? selectedCategory
+          : data.detected_category || selectedCategory;
+        await requestImageSeverity(imgData, severityCategory, textDesc);
       }
     } catch (err) {
       console.warn('[AI Classification Notice]:', err);
@@ -293,11 +343,12 @@ export default function ReportIssueModal({ isOpen, onClose }) {
 
     if (currentCache[targetLang]) {
       setPreviewData(currentCache[targetLang]);
+      setSeverityData(currentCache[targetLang]);
       setStep(2);
       return;
     }
 
-    // 2. If not cached, generate ALL 5 languages IN PARALLEL for zero-latency future switches
+    // Classify once for the first language, then reuse its severity for translations.
     setPreviewLoading(true);
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -311,43 +362,77 @@ export default function ReportIssueModal({ isOpen, onClose }) {
         ta: `அறிவிப்பு: இந்த புகார் CivicSnap மூலம் அநாமதேயமாக அனுப்பப்பட்டது.\n\nபெறுநர்,\nநகராட்சி அதிகாரம்\nபொருள்: ${selectedCategory} தொடர்பான அதிகாரப்பூர்வ குடிமக்கள் புகார்\n\nமதிப்பிற்குரிய அய்யா அல்லது அம்மையீர்,\n\n${selectedCategory} தொடர்பான அவசர குடிமக்கள் பிரச்சினையைத் தெரிவிக்கிறேன். தயவுசெய்து 48 மணி நேரத்திற்குள் இடத்தை ஆய்வு செய்து நடவடிக்கை எடுக்கவும்.\n\nஉண்மையுடன்,\n${nameStr}`
       };
 
-      const parallelResults = await Promise.all(
-        LANGUAGES.map(async (langObj) => {
-          const lId = langObj.id;
-          try {
-            const res = await fetch(`${BACKEND_URL}/api/reports/preview`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({
-                image_data: imageSrc,
-                category: selectedCategory,
-                latitude: parseFloat(gpsLocation.lat) || 19.0760,
-                longitude: parseFloat(gpsLocation.lng) || 72.8777,
-                description,
-                disclose_identity: discloseIdentity,
-                citizen_name: user?.name || null,
-                language: lId
-              })
-            });
-            const data = await res.json();
-            if (data.success) {
-              return { lang: lId, data };
-            }
-          } catch (err) {
-            console.warn(`[Parallel Preview Notice for ${lId}]:`, err);
-          }
+      const requestPreview = async (language, severityResult = null) => {
+        const res = await fetch(`${BACKEND_URL}/api/reports/preview`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            image_data: imageSrc,
+            category: selectedCategory,
+            latitude: parseFloat(gpsLocation.lat) || 19.0760,
+            longitude: parseFloat(gpsLocation.lng) || 72.8777,
+            description,
+            disclose_identity: discloseIdentity,
+            citizen_name: user?.name || null,
+            language,
+            severity_result: severityResult
+          })
+        });
+        const data = await res.json();
+        return data.success ? data : null;
+      };
 
-          // Fallback offline preview if request fails
+      let firstPreview = null;
+      try {
+        firstPreview = await requestPreview(targetLang, severityData?.severity_result || null);
+      } catch (err) {
+        console.warn(`[Parallel Preview Notice for ${targetLang}]:`, err);
+      }
+      const severityForTranslations = firstPreview || severityData || {};
+      if (firstPreview) setSeverityData(firstPreview);
+
+      const parallelResults = await Promise.all(
+        LANGUAGES.map(async ({ id: language }) => {
+          if (language === targetLang && firstPreview) {
+            return { lang: language, data: firstPreview };
+          }
+          if (!firstPreview) {
+            return {
+              lang: language,
+              data: {
+                success: true,
+                formal_letter: offlineLetters[language] || offlineLetters.en,
+                authority_name: 'Municipal Corporation',
+                header_notice: discloseIdentity ? `Disclosed: ${nameStr}` : 'Anonymous Report',
+                severity_class: severityForTranslations.severity_class,
+                confidence_score: severityForTranslations.confidence_score,
+                reasoning: severityForTranslations.reasoning,
+                urgency_flag: severityForTranslations.urgency_flag,
+                severity_result: severityForTranslations.severity_result
+              }
+            };
+          }
+          try {
+            const translatedPreview = await requestPreview(language, firstPreview.severity_result);
+            if (translatedPreview) return { lang: language, data: translatedPreview };
+          } catch (err) {
+            console.warn(`[Parallel Preview Notice for ${language}]:`, err);
+          }
           return {
-            lang: lId,
+            lang: language,
             data: {
               success: true,
-              formal_letter: offlineLetters[lId] || offlineLetters.en,
-              authority_name: 'Municipal Corporation',
-              header_notice: discloseIdentity ? `Disclosed: ${nameStr}` : 'Anonymous Report'
+              formal_letter: offlineLetters[language] || offlineLetters.en,
+              authority_name: firstPreview.authority_name || 'Municipal Corporation',
+              header_notice: firstPreview.header_notice,
+              severity_class: firstPreview.severity_class,
+              confidence_score: firstPreview.confidence_score,
+              reasoning: firstPreview.reasoning,
+              urgency_flag: firstPreview.urgency_flag,
+              severity_result: firstPreview.severity_result
             }
           };
         })
@@ -401,7 +486,8 @@ export default function ReportIssueModal({ isOpen, onClose }) {
           citizen_name: user?.name || null,
           citizen_email: user?.email || null,
           language: selectedLanguage,
-          complaint_report: previewData?.formal_letter || null
+          complaint_report: previewData?.formal_letter || null,
+          severity_result: previewData?.severity_result || severityData?.severity_result || null
         })
 
       });
@@ -756,6 +842,40 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                     </div>
                   )}
 
+                  {imageSrc && (severityLoading || severityData?.severity_class) && (
+                    <div className="p-4 bg-white rounded-2xl border border-pista-400 shadow-sm space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">AI Image Severity</span>
+                        {severityLoading ? (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-bottle-800">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Assessing image...
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`inline-flex px-2.5 py-1 rounded-lg border text-[11px] font-black uppercase ${SEVERITY_STYLES[severityData.severity_class.toLowerCase()] || SEVERITY_STYLES.medium}`}>
+                              {severityData.severity_class}
+                            </span>
+                            {severityData.confidence_score != null && (
+                              <span className="text-[11px] font-black text-bottle-800 bg-pista-100 px-2 py-0.5 rounded-md border border-pista-300">
+                                {Math.round(severityData.confidence_score)}% confidence
+                              </span>
+                            )}
+                            {severityData.urgency_flag === true && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold border bg-red-100 text-red-900 border-red-300">
+                                Marked Urgent
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {!severityLoading && severityData?.reasoning && (
+                        <p className="text-[11px] font-semibold text-slate-700 leading-snug line-clamp-2">
+                          {severityData.reasoning}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* CONDITIONAL CATEGORY & AUTHORITY SELECTOR (Appears ONLY if Citizen clicks Override OR AI is uncertain) */}
                   {(isManualOverride || classificationResult?.status === 'needs_manual_review') && (
                     <div className="space-y-3 p-4 bg-amber-50/80 rounded-2xl border-2 border-amber-300 shadow-sm transition-all duration-300">
@@ -787,6 +907,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                               setSelectedCategory(cat.id);
                               setIsManualOverride(true);
                               purgePreviewCache();
+                              requestImageSeverity(imageSrc, cat.id, description);
                             }}
                             className={`min-h-[52px] px-3 py-2 rounded-xl border text-left font-semibold text-xs flex flex-col justify-center transition cursor-pointer ${
                               selectedCategory === cat.id
@@ -856,7 +977,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                   <button
                     type="button"
                     onClick={() => handleGeneratePreview(selectedLanguage)}
-                    disabled={!imageSrc || previewLoading}
+                    disabled={!imageSrc || previewLoading || classifying || severityLoading}
                     className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-base rounded-2xl transition shadow-xl shadow-bottle-950/30 flex items-center justify-center gap-2 min-h-[54px] cursor-pointer border border-bottle-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Globe className="w-5 h-5 text-white" />

@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -144,7 +144,8 @@ def generate_formal_letter(
     soap_data: Dict[str, Any],
     disclose_identity: bool = False,
     citizen_name: str = None,
-    language: str = "en"
+    language: str = "en",
+    severity_result: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Template Fallback Generator:
@@ -158,6 +159,37 @@ def generate_formal_letter(
     department = soap_data.get("department", "Municipal Corporation")
     category = soap_data.get("category", "Civic Issue")
     soap = soap_data.get("soap_structure", {})
+
+    severity_statement = ""
+    if severity_result:
+        severity_class = str(severity_result.get("severity_class", "")).lower()
+        severity_labels = {
+            "en": {"low": "Low", "medium": "Medium", "high": "High", "critical": "Critical"},
+            "hi": {"low": "निम्न", "medium": "मध्यम", "high": "उच्च", "critical": "गंभीर"},
+            "mr": {"low": "कमी", "medium": "मध्यम", "high": "उच्च", "critical": "गंभीर"},
+            "gu": {"low": "ઓછું", "medium": "મધ્યમ", "high": "ઊંચું", "critical": "ગંભીર"},
+            "ta": {"low": "குறைவு", "medium": "நடுத்தரம்", "high": "அதிகம்", "critical": "மிகவும் தீவிரம்"},
+        }
+        severity_prefix = {
+            "en": "AI image assessment",
+            "hi": "AI छवि आकलन",
+            "mr": "AI प्रतिमा मूल्यांकन",
+            "gu": "AI છબી મૂલ્યાંકન",
+            "ta": "AI பட மதிப்பீடு",
+        }
+        severity_phrases = {
+            "en": "Severity is",
+            "hi": "गंभीरता है",
+            "mr": "तीव्रता आहे",
+            "gu": "ગંભીરતા છે",
+            "ta": "தீவிரம்",
+        }
+        localized_severity = severity_labels[lang].get(severity_class, severity_class.title())
+        severity_reasoning = severity_result.get("reasoning", "")
+        severity_statement = (
+            f"{severity_prefix[lang]}: {severity_phrases[lang]} {localized_severity}. "
+            f"{severity_reasoning}"
+        ).strip()
 
     routing = determine_authority_routing(department, city_name, taluka_name)
     authority_name = routing["authority_name"]
@@ -212,7 +244,7 @@ def generate_formal_letter(
 
 {tpl['body_intro'].format(category=category_names, city_name=city_name, taluka_name=taluka_name)}
 
-{tpl['findings']} {tpl['request']}
+{tpl['findings']} {severity_statement} {tpl['request']}
 
 {tpl['sign_disclosed'].format(citizen_name=signer, city_name=city_name) if disclose_identity and citizen_name else tpl['sign_anon'].format(city_name=city_name)}"""
 
@@ -220,7 +252,8 @@ def generate_llm_formal_letter_nvidia(
     soap_data: Dict[str, Any],
     disclose_identity: bool = False,
     citizen_name: str = None,
-    language: str = "en"
+    language: str = "en",
+    severity_result: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Generates a formal municipal complaint letter dynamically using NVIDIA Nemotron 3.5 Lightning LLM.
@@ -247,6 +280,16 @@ def generate_llm_formal_letter_nvidia(
     }
     target_lang = lang_name_map.get(language.lower() if language else "en", "English")
 
+    severity_instruction = ""
+    if severity_result:
+        severity_class = str(severity_result.get("severity_class", "")).title()
+        severity_reasoning = severity_result.get("reasoning", "")
+        severity_instruction = (
+            f" State the image-classified severity as '{severity_class}' in the risk/action paragraph "
+            f"and include this visual reasoning: '{severity_reasoning}'. This AI assessment is authoritative; "
+            "do not substitute a category-based severity."
+        )
+
     if disclose_identity and citizen_name:
         header_notice = f"NOTICE: The Citizen has Disclosed Identity: {citizen_name} (Verified via CivicSnap Mobile Auth)"
         signature_instruction = f"Signed as: Registered Citizen '{citizen_name}', {city_name}"
@@ -266,8 +309,8 @@ CRITICAL REQUIREMENTS:
    - Recipient line naming {authority_name}, {department}, {city_name}, and {taluka_name}
    - Subject line about {category} in {city_name}
    - Formal salutation
-   - First paragraph describing context and findings, based on this source information: "{p1_soap}"
-   - Second paragraph describing risk and the requested 48-hour SLA action, based on this source information: "{p2_soap}"
+    - First paragraph describing context and findings, based on this source information: "{p1_soap}"
+    - Second paragraph describing severity, risk, and the requested 48-hour SLA action, based on this source information: "{p2_soap}".{severity_instruction}
    - Closing conveying: {signature_instruction}
 
 Write ONLY in {target_lang} throughout. Translate the source information and all structural elements; never copy English labels or phrases into the letter. Keep it concise, direct, professional, and under 200 words."""
@@ -306,7 +349,8 @@ Write ONLY in {target_lang} throughout. Translate the source information and all
         soap_data=soap_data,
         disclose_identity=disclose_identity,
         citizen_name=citizen_name,
-        language=language
+        language=language,
+        severity_result=severity_result
     )
 
 def generate_llm_complaint_report(
@@ -315,7 +359,8 @@ def generate_llm_complaint_report(
     user_notes: str = "",
     disclose_identity: bool = False,
     citizen_name: str = None,
-    language: str = "en"
+    language: str = "en",
+    severity_result: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     LLM Complaint Report Generator:
@@ -338,7 +383,8 @@ def generate_llm_complaint_report(
         soap_data=soap_data,
         disclose_identity=disclose_identity,
         citizen_name=citizen_name,
-        language=language
+        language=language,
+        severity_result=severity_result
     )
 
     return {

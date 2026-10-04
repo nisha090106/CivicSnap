@@ -1,18 +1,20 @@
 import os
+import math
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
-from fastapi import FastAPI, HTTPException, status, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, status, Depends, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
 from botocore.config import Config
 
-from database import engine, Base, check_db_connection, get_db
+from database import engine, Base, SessionLocal, check_db_connection, get_db
 from sqlalchemy.orm import Session
-from sqlalchemy import cast, String, text, or_
+from sqlalchemy import cast, String, text, or_, func
+from sqlalchemy.exc import IntegrityError
 from auth import get_current_user, get_optional_user, require_citizen, require_authority
 import models
 
@@ -21,6 +23,79 @@ from services.multimodal_service import analyze_and_generate_soap_transcript
 from services.report_generator_service import generate_llm_complaint_report
 from services.email_service import draft_official_email, anti_hallucination_critic, dispatch_email_worker, send_status_update_notification_to_citizen
 from services.classification_service import classify_multimodal_issue
+from services.severity_classification_service import classify_image_severity
+from services.deduplication_service import suggest_merge
+
+FEATURE_AI_SEVERITY = os.getenv("FEATURE_AI_SEVERITY", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
+
+FEATURE_COMMUNITY_MAP = os.getenv("FEATURE_COMMUNITY_MAP", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
+
+
+def _run_shadow_deduplication(report_id):
+    shadow_db = SessionLocal()
+    try:
+        report = shadow_db.get(models.Report, report_id)
+        if report is not None:
+            suggest_merge(shadow_db, report)
+    except Exception as e:
+        shadow_db.rollback()
+        print(f"[Deduplication Shadow Error]: {e}")
+    finally:
+        shadow_db.close()
+
+
+def _normalize_severity_result(severity_result):
+    if not isinstance(severity_result, dict):
+        return None
+
+    severity_class = str(severity_result.get("severity_class", "")).strip().lower()
+    if severity_class not in {"low", "medium", "high", "critical"}:
+        return None
+
+    try:
+        confidence_score = float(severity_result.get("confidence_score"))
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(confidence_score):
+        return None
+
+    reasoning = severity_result.get("reasoning")
+    urgency_flag = severity_result.get("urgency_flag")
+    if not isinstance(reasoning, str) or not reasoning.strip() or not isinstance(urgency_flag, bool):
+        return None
+
+    return {
+        "severity_class": severity_class,
+        "confidence_score": min(1.0, max(0.0, confidence_score)),
+        "reasoning": reasoning.strip(),
+        "urgency_flag": urgency_flag or severity_class in {"high", "critical"},
+    }
+
+
+def _apply_severity_result_to_soap(soap_data, severity_result):
+    severity_level = severity_result["severity_class"].title()
+    soap_structure = soap_data["soap_structure"]
+    old_assessment = soap_structure["A"]
+    impact_marker = ". Municipal Impact:"
+    _, marker_found, impact_details = old_assessment.partition(impact_marker)
+
+    assessment = f"Severity: {severity_level}. AI visual assessment: {severity_result['reasoning']}."
+    if marker_found:
+        assessment += f"{impact_marker}{impact_details}"
+    soap_structure["A"] = assessment
+
+    soap_data["severity"] = severity_level
+    soap_data["ai_severity_confidence"] = severity_result["confidence_score"]
+    soap_data["ai_severity_reasoning"] = severity_result["reasoning"]
+    soap_data["urgency_flag"] = severity_result["urgency_flag"]
+    soap_data["soap_transcript"] = "\n".join(
+        f"{key} ({label}): {soap_structure[key]}"
+        for key, label in (("S", "Subjective"), ("O", "Objective"), ("A", "Assessment"), ("P", "Plan"))
+    )
 
 # Initialize database schema
 try:
@@ -70,6 +145,7 @@ class ReportSubmitRequest(BaseModel):
     citizen_email: Optional[str] = None
     language: Optional[str] = "en"
     complaint_report: Optional[str] = None
+    severity_result: Optional[Dict[str, Any]] = None
 
 
 class ReportPreviewRequest(BaseModel):
@@ -81,6 +157,8 @@ class ReportPreviewRequest(BaseModel):
     disclose_identity: Optional[bool] = False
     citizen_name: Optional[str] = None
     language: Optional[str] = "en"
+    severity_result: Optional[Dict[str, Any]] = None
+    severity_only: Optional[bool] = False
 
 class StatusUpdateRequest(BaseModel):
     status: str
@@ -155,6 +233,38 @@ def preview_civic_report(
             user_notes=req.description or ""
         )
 
+        severity_result = _normalize_severity_result(req.severity_result)
+        if severity_result is None:
+            try:
+                severity_result = _normalize_severity_result(classify_image_severity(
+                    req.image_data or "/static/default_issue.jpg",
+                    category_to_use,
+                    req.description or ""
+                ))
+            except Exception as error:
+                print(f"[Preview Image Severity Error] Using category fallback: {error}")
+
+        if severity_result is None:
+            fallback_severity = soap_data["severity"].lower()
+            severity_result = {
+                "severity_class": fallback_severity,
+                "confidence_score": 0.0,
+                "reasoning": "Image severity analysis was unavailable; category-based severity was used.",
+                "urgency_flag": fallback_severity in {"high", "critical"},
+            }
+
+        if req.severity_only:
+            return {
+                "success": True,
+                "severity_class": severity_result["severity_class"].title(),
+                "confidence_score": round(severity_result["confidence_score"] * 100, 1),
+                "reasoning": severity_result["reasoning"],
+                "urgency_flag": severity_result["urgency_flag"],
+                "severity_result": severity_result,
+            }
+
+        _apply_severity_result_to_soap(soap_data, severity_result)
+
         citizen_name = req.citizen_name or (user.get("name") if user else None) or "Anonymous Citizen"
 
         complaint_data = generate_llm_complaint_report(
@@ -163,7 +273,8 @@ def preview_civic_report(
             user_notes=req.description or "",
             disclose_identity=req.disclose_identity or False,
             citizen_name=citizen_name,
-            language=req.language or "en"
+            language=req.language or "en",
+            severity_result=severity_result
         )
 
         return {
@@ -173,6 +284,11 @@ def preview_civic_report(
             "authority_name": complaint_data["authority_name"],
             "header_notice": complaint_data["header_notice"],
             "city_name": soap_data["city_name"],
+            "severity_class": severity_result["severity_class"].title(),
+            "confidence_score": round(severity_result["confidence_score"] * 100, 1),
+            "reasoning": severity_result["reasoning"],
+            "urgency_flag": severity_result["urgency_flag"],
+            "severity_result": severity_result,
             "language": req.language or "en",
             "disclose_identity": req.disclose_identity
         }
@@ -218,6 +334,29 @@ def submit_civic_report(
             user_notes=req.description or ""
         )
 
+        severity_result = _normalize_severity_result(req.severity_result)
+        if severity_result is None and FEATURE_AI_SEVERITY:
+            try:
+                severity_result = _normalize_severity_result(classify_image_severity(
+                    image_url,
+                    category_to_use,
+                    req.description or ""
+                ))
+            except Exception as error:
+                print(f"[Image Severity Error] Using SOAP category fallback: {error}")
+
+        if severity_result is not None:
+            _apply_severity_result_to_soap(soap_data, severity_result)
+            severity_level = severity_result["severity_class"].title()
+            severity_confidence = severity_result["confidence_score"]
+            severity_reasoning = severity_result["reasoning"]
+            urgency_flagged = severity_result["urgency_flag"]
+        else:
+            severity_level = soap_data["severity"]
+            severity_confidence = None
+            severity_reasoning = None
+            urgency_flagged = False
+
         citizen_name = req.citizen_name or (user.get("name") if user else None) or "Anonymous Citizen"
         citizen_email = req.citizen_email or (user.get("email") if user else None)
 
@@ -238,7 +377,8 @@ def submit_civic_report(
                 user_notes=req.description or "",
                 disclose_identity=req.disclose_identity or False,
                 citizen_name=citizen_name,
-                language=req.language or "en"
+                language=req.language or "en",
+                severity_result=severity_result
             )
 
         # Step 6: Emailing Subsystem Pipeline
@@ -273,7 +413,10 @@ def submit_civic_report(
             state_name=soap_data["state_name"],
             soap_transcript=soap_data["soap_transcript"],
             complaint_report=complaint_data["complaint_report"],
-            severity_level=soap_data["severity"],
+            severity_level=severity_level,
+            ai_severity_confidence=severity_confidence,
+            ai_severity_reasoning=severity_reasoning,
+            urgency_flagged=urgency_flagged,
             ttl_expires_at=calculate_ttl_expiration(15),
             email_draft=critic_result["verified_body"],
             critic_verdict=critic_result["verdict"],
@@ -286,6 +429,41 @@ def submit_civic_report(
         db.add(new_report)
         db.commit()
         db.refresh(new_report)
+
+        if urgency_flagged:
+            try:
+                confidence_label = f"{severity_confidence:.0%}" if severity_confidence is not None else "unavailable"
+                urgent_subject = (
+                    f"[URGENT] CivicSnap {severity_level} severity "
+                    f"{new_report.category} in {new_report.city_name}"
+                )
+                urgent_body = f"""Urgent civic issue notification for {complaint_data.get('authority_name', new_report.department)}.
+
+Severity: {severity_level}
+AI confidence: {confidence_label}
+Reason: {severity_reasoning or 'Urgent issue requires prompt authority review.'}
+Category: {new_report.category}
+Department: {new_report.department}
+Location: {new_report.city_name}, {new_report.taluka_name}, {new_report.district_name}
+Citizen description: {req.description or 'No description provided'}
+Evidence image: {get_presigned_image_url(image_url)}
+
+Please prioritize review and dispatch an appropriate response."""
+                urgent_worker_res = dispatch_email_worker(
+                    target_email=complaint_data.get("contact_email"),
+                    subject=urgent_subject,
+                    body=urgent_body,
+                    critic_verdict="Urgent AI severity notification; factual details copied from the report."
+                )
+                if urgent_worker_res.get("status") == "sent":
+                    new_report.urgency_notified_at = datetime.now(timezone.utc)
+                    db.commit()
+                    db.refresh(new_report)
+            except Exception as error:
+                db.rollback()
+                print(f"[Urgent Authority Notification Error]: {error}")
+
+        background_tasks.add_task(_run_shadow_deduplication, new_report.report_id)
 
         return {
             "success": True,
@@ -396,6 +574,206 @@ def get_public_all_reports(db: Session = Depends(get_db)):
         print(f"[Public Reports Error]: {e}")
         return {"count": 0, "reports": []}
 
+
+def _community_map_enabled():
+    if not FEATURE_COMMUNITY_MAP:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community map is disabled")
+
+
+def _community_report_payload(report, cluster_id, upvote_count, include_description=False):
+    payload = {
+        "cluster_id": str(cluster_id),
+        "category": report.category,
+        "latitude": report.latitude,
+        "longitude": report.longitude,
+        "status": report.status or "Pending",
+        "created_at": report.created_at.isoformat() if report.created_at else None,
+        "upvote_count": upvote_count,
+    }
+    if include_description:
+        payload["description"] = report.description
+    return payload
+
+
+def _community_reports_query(
+    db: Session,
+    category: Optional[str] = None,
+    report_status: Optional[str] = None,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    radius_km: Optional[float] = None,
+    include_description: bool = False,
+):
+    if any(value is not None for value in (lat, lng, radius_km)) and not all(
+        value is not None for value in (lat, lng, radius_km)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="lat, lng, and radius_km must be provided together",
+        )
+
+    reports = db.query(models.Report).order_by(models.Report.created_at.desc()).all()
+    reports_by_id = {report.report_id: report for report in reports}
+    grouped_reports = {}
+
+    for report in reports:
+        # Transitional fallback: until deduplication backfills cluster_id, expose
+        # each raw report as a singleton cluster so the map remains populated.
+        group_id = report.cluster_id or report.report_id
+        grouped_reports.setdefault(group_id, []).append(report)
+
+    cluster_ids = list({report.cluster_id for report in reports if report.cluster_id})
+    clusters_by_id = {
+        cluster.cluster_id: cluster
+        for cluster in db.query(models.ReportCluster)
+        .filter(models.ReportCluster.cluster_id.in_(cluster_ids))
+        .all()
+    } if cluster_ids else {}
+
+    try:
+        vote_counts = dict(
+            db.query(models.Vote.cluster_id, func.count(models.Vote.vote_id))
+            .group_by(models.Vote.cluster_id)
+            .all()
+        )
+    except Exception as e:
+        print(f"[Community Vote Count Notice]: {e}")
+        vote_counts = {}
+    results = []
+
+    for group_id, group in grouped_reports.items():
+        cluster = clusters_by_id.get(group_id)
+        canonical_report = None
+        if cluster and cluster.canonical_report_id:
+            canonical_report = reports_by_id.get(cluster.canonical_report_id)
+        canonical_report = canonical_report or group[0]
+
+        if category and (canonical_report.category or "").lower() != category.lower():
+            continue
+        if report_status and (canonical_report.status or "Pending").lower() != report_status.lower():
+            continue
+        if canonical_report.latitude is None or canonical_report.longitude is None:
+            continue
+        if lat is not None and lng is not None and radius_km is not None:
+            lat_delta = radius_km / 111.0
+            lng_delta = radius_km / (111.0 * max(abs(math.cos(math.radians(lat))), 0.01))
+            if not (
+                lat - lat_delta <= canonical_report.latitude <= lat + lat_delta
+                and lng - lng_delta <= canonical_report.longitude <= lng + lng_delta
+            ):
+                continue
+
+        results.append(
+            _community_report_payload(
+                canonical_report,
+                group_id,
+                vote_counts.get(group_id, 0),
+                include_description,
+            )
+        )
+    return results
+
+
+@app.get("/api/community/reports")
+def get_community_reports(
+    category: Optional[str] = None,
+    report_status: Optional[str] = Query(default=None, alias="status"),
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    radius_km: Optional[float] = Query(default=None, gt=0),
+    db: Session = Depends(get_db),
+):
+    _community_map_enabled()
+    try:
+        reports = _community_reports_query(db, category, report_status, lat, lng, radius_km)
+        return {"count": len(reports), "reports": reports}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Community Reports Error]: {e}")
+        return {"count": 0, "reports": []}
+
+
+@app.get("/api/community/reports/{cluster_id}")
+def get_community_report(cluster_id: uuid.UUID, db: Session = Depends(get_db)):
+    _community_map_enabled()
+    try:
+        reports = _community_reports_query(db, include_description=True)
+        for report in reports:
+            if report["cluster_id"] == str(cluster_id):
+                return report
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Community Report Error]: {e}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
+
+
+@app.get("/api/reports/dedup-suggestions")
+def get_deduplication_suggestions(
+    decision: Optional[str] = None,
+    min_confidence: Optional[float] = Query(default=None, ge=0, le=1),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_authority),
+):
+    try:
+        audit_entries = db.query(models.AuditLog).filter(
+            models.AuditLog.entity_type == "report_cluster",
+            models.AuditLog.action == "deduplication_suggestion",
+        ).order_by(models.AuditLog.created_at.desc()).all()
+
+        suggestions = []
+        for entry in audit_entries:
+            details = entry.details or {}
+            entry_decision = details.get("decision")
+            confidence = details.get("confidence_score")
+            if decision and entry_decision != decision:
+                continue
+            if min_confidence is not None and (confidence is None or confidence < min_confidence):
+                continue
+            suggestions.append({
+                "source_report_id": details.get("source_report_id"),
+                "candidate_cluster_id": details.get("candidate_cluster_id"),
+                "confidence_score": confidence,
+                "matched_fields": details.get("matched_fields", {}),
+                "decision": entry_decision,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+            })
+        return {"count": len(suggestions), "suggestions": suggestions}
+    except Exception as e:
+        print(f"[Deduplication Suggestions Error]: {e}")
+        return {"count": 0, "suggestions": []}
+
+
+@app.post("/api/community/reports/{cluster_id}/upvote")
+def upvote_community_report(
+    cluster_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_citizen),
+):
+    try:
+        cluster = db.get(models.ReportCluster, cluster_id)
+        if cluster is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
+
+        citizen_id = user.get("id") or user.get("user_id") or user.get("sub")
+        if not citizen_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Citizen identity is missing")
+
+        db.add(models.Vote(cluster_id=cluster_id, citizen_id=str(citizen_id)))
+        db.commit()
+        return {"success": True, "cluster_id": str(cluster_id)}
+    except HTTPException:
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Citizen has already upvoted this report")
+    except Exception as e:
+        db.rollback()
+        print(f"[Community Upvote Error]: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to record upvote")
+
 # 3. AUTHORITY DEPARTMENT FEED: GET /api/reports/authority
 @app.get("/api/reports/authority")
 def get_authority_reports(
@@ -431,6 +809,11 @@ def get_authority_reports(
                     "complaint_report": r.complaint_report,
                     "critic_verdict": r.critic_verdict,
                     "email_status": r.email_status,
+                    "severity_level": r.severity_level,
+                    "ai_severity_confidence": r.ai_severity_confidence,
+                    "ai_severity_reasoning": r.ai_severity_reasoning,
+                    "urgency_flagged": r.urgency_flagged,
+                    "urgency_notified_at": r.urgency_notified_at.isoformat() if r.urgency_notified_at else None,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                     "vote_count": r.vote_count or 0
                 }

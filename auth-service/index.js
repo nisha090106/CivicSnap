@@ -1,5 +1,6 @@
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
+const https = require('https');
 
 const path = require('path');
 const express = require('express');
@@ -9,6 +10,15 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const { scrypt: scryptAsync, randomBytes } = require('node:crypto');
 const SCRYPT_CONFIG = { N: 16384, r: 16, p: 1, dkLen: 64 };
+
+const googleIpv4Agent = new https.Agent({
+  lookup(hostname, options, callback) {
+    dns.lookup(hostname, { ...options, family: 4 }, callback);
+  }
+});
+
+const googleIpv4Fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 const PORT = process.env.AUTH_SERVICE_PORT || 4000;
@@ -400,7 +410,13 @@ app.post('/api/auth/google/signin', async (req, res) => {
     }
     
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
-    const client = new OAuth2Client(googleClientId);
+    const client = new OAuth2Client({
+      clientId: googleClientId,
+      transporterOptions: {
+        agent: googleIpv4Agent,
+        fetchImplementation: googleIpv4Fetch
+      }
+    });
     
     let payload;
     try {

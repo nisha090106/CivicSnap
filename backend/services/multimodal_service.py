@@ -51,6 +51,23 @@ def reverse_geocode(lat: float, lng: float) -> Dict[str, str]:
             "state": "Maharashtra"
         }
 
+def static_severity_for_category(category: str) -> str:
+    """Return the legacy category-based severity used when image analysis is unavailable."""
+    category_clean = (category or "pothole").lower().strip()
+    if "pothole" in category_clean or "road" in category_clean:
+        return "High"
+    if "garbage" in category_clean or "waste" in category_clean:
+        return "Medium"
+    if "water" in category_clean or "leak" in category_clean:
+        return "High"
+    if "electricity" in category_clean or "light" in category_clean or "wire" in category_clean:
+        return "Medium"
+    if "forest" in category_clean or "tree" in category_clean:
+        return "Low"
+    if "food" in category_clean or "fda" in category_clean or "drug" in category_clean:
+        return "Medium"
+    return "Low"
+
 def analyze_and_generate_soap_transcript(
     image_url: str,
     category: str,

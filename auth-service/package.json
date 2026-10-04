@@ -3,10 +3,7 @@
   "version": "1.0.0",
   "description": "Auth microservice for CivicSnap (Better Auth runtime host)",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
-  },
+  "start": "cross-env NODE_OPTIONS=--dns-result-order=ipv4first node index.js",  
   "dependencies": {
     "better-auth": "^1.6.29",
     "cors": "^2.8.5",
@@ -14,6 +11,7 @@
     "express": "^4.19.2",
     "google-auth-library": "^11.0.2",
     "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2",
     "pg": "^8.11.5"
   }
 }
