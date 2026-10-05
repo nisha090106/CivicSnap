@@ -37,7 +37,7 @@ const createStatusIcon = (status, isUrgent = false) => {
   });
 };
 
-export default function CommunityMap({ reports = [], authorityContext = false }) {
+export default function CommunityMap({ reports = [], authorityContext = false, onSelectReport }) {
   const [mapCenter, setMapCenter] = useState([18.5204, 73.8567]); // Pune default
   const [userLocation, setUserLocation] = useState(null);
   const canonicalCommunityMapEnabled = !authorityContext && import.meta.env.VITE_FEATURE_COMMUNITY_MAP === 'true';
@@ -151,6 +151,18 @@ export default function CommunityMap({ reports = [], authorityContext = false })
                   >
                     <span>Google Maps ↗</span>
                   </a>
+                  {onSelectReport && !authorityContext && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectReport({ ...report, image_url: imageUrl, city_name: userLocation?.city || report.city_name });
+                      }}
+                      className="inline-flex items-center justify-center w-full py-1.5 bg-emerald-800 text-white rounded-lg text-[10px] font-black"
+                    >
+                      View report
+                    </button>
+                  )}
                 </div>
               </Popup>
             </Marker>

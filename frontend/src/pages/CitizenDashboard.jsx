@@ -16,7 +16,9 @@ import {
   ExternalLink,
   Clock,
   Building2,
-  X
+  X,
+  ThumbsUp,
+  Send
 } from 'lucide-react';
 
 function getFullImageUrl(url, backendUrl) {
@@ -51,6 +53,9 @@ export default function CitizenDashboard() {
   const [publicReports, setPublicReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
   const [selectedDetailReport, setSelectedDetailReport] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  const [interactionError, setInteractionError] = useState('');
+  const [interactionBusy, setInteractionBusy] = useState(false);
   const [currentCity, setCurrentCity] = useState('Detecting...');
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -82,6 +87,95 @@ export default function CitizenDashboard() {
       })
       .catch(err => console.error('[Public Map Fetch Error]:', err))
       .finally(() => setLoadingReports(false));
+  };
+
+  const openCommunityReport = async (report) => {
+    setSelectedDetailReport(report);
+    setCommentText('');
+    setInteractionError('');
+    const reportId = report.cluster_id || report.report_id || report.id;
+    if (!reportId) {
+      setInteractionError('Unable to load voting details for this report.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/community/reports/${reportId}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      if (!response.ok) {
+        setInteractionError('Unable to load voting details for this report.');
+        return;
+      }
+      const details = await response.json();
+      setSelectedDetailReport((current) => {
+        const currentId = current?.cluster_id || current?.report_id || current?.id;
+        return currentId === reportId ? { ...current, ...details } : current;
+      });
+    } catch (error) {
+      console.error('[Community Report Details Error]:', error);
+      setInteractionError('Unable to load voting details for this report.');
+    }
+  };
+
+  const toggleCommunityVote = async () => {
+    if (!token) {
+      setInteractionError('Sign in as a citizen to upvote this report.');
+      return;
+    }
+    const clusterId = selectedDetailReport?.cluster_id;
+    if (!clusterId) return;
+
+    setInteractionBusy(true);
+    setInteractionError('');
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/community/reports/${clusterId}/upvote`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Unable to update your vote.');
+      setSelectedDetailReport((current) => current ? {
+        ...current,
+        my_vote: data.voted,
+        upvote_count: data.upvote_count
+      } : current);
+    } catch (error) {
+      setInteractionError(error.message);
+    } finally {
+      setInteractionBusy(false);
+    }
+  };
+
+  const submitCommunityComment = async (event) => {
+    event.preventDefault();
+    if (!token) {
+      setInteractionError('Sign in as a citizen to send a comment to authorities.');
+      return;
+    }
+    const clusterId = selectedDetailReport?.cluster_id;
+    if (!clusterId) return;
+
+    setInteractionBusy(true);
+    setInteractionError('');
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/community/reports/${clusterId}/comments`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: commentText })
+      });
+      const comment = await response.json();
+      if (!response.ok) throw new Error(comment.detail || 'Unable to submit your comment.');
+      setSelectedDetailReport((current) => current ? { ...current, my_comment: comment } : current);
+      setCommentText('');
+    } catch (error) {
+      setInteractionError(error.message);
+    } finally {
+      setInteractionBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -270,7 +364,7 @@ export default function CitizenDashboard() {
                           {/* Uploaded Evidence Image */}
                           {imageUrl && (
                             <div
-                              onClick={() => setSelectedDetailReport(report)}
+                              onClick={() => openCommunityReport(report)}
                               className="relative w-full h-44 rounded-2xl bg-slate-900 border border-pista-400 overflow-hidden cursor-pointer group"
                             >
                               <img
@@ -332,7 +426,7 @@ export default function CitizenDashboard() {
 
               {/* Left 2 Cols: Interactive GIS Map */}
               <div className="lg:col-span-2 space-y-4">
-                <CommunityMap reports={publicReports} />
+                <CommunityMap reports={publicReports} onSelectReport={openCommunityReport} />
               </div>
 
               {/* Right Col: Live Reports Sidebar */}
@@ -406,7 +500,7 @@ export default function CitizenDashboard() {
                     ]).map((item, idx) => (
                       <div
                         key={idx}
-                        onClick={() => setSelectedDetailReport(item)}
+                        onClick={() => openCommunityReport(item)}
                         className="p-2.5 bg-pista-50/70 hover:bg-pista-100 rounded-xl border border-pista-300 flex items-center justify-between gap-3 transition cursor-pointer shadow-2xs"
                       >
                         <div className="flex items-center gap-3">
@@ -580,6 +674,55 @@ export default function CitizenDashboard() {
                   <span className="text-[10px] font-black text-bottle-800 uppercase block">Current Status</span>
                   <span className="font-bold text-emerald-800">{selectedDetailReport.status || 'Pending'}</span>
                 </div>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={toggleCommunityVote}
+                  disabled={interactionBusy || selectedDetailReport.can_interact === false}
+                  aria-pressed={selectedDetailReport.my_vote === true}
+                  className={`min-h-[44px] px-4 py-2 rounded-xl border font-black text-xs inline-flex items-center gap-2 disabled:opacity-50 ${selectedDetailReport.my_vote === true
+                    ? 'bg-emerald-800 text-white border-emerald-900'
+                    : 'bg-white text-bottle-900 border-pista-400 hover:bg-pista-100'
+                    }`}
+                >
+                  <ThumbsUp className="w-4 h-4" fill={selectedDetailReport.my_vote === true ? 'currentColor' : 'none'} />
+                  {selectedDetailReport.my_vote === true ? 'Upvoted' : 'Upvote'} ({selectedDetailReport.upvote_count || 0})
+                </button>
+                {selectedDetailReport.can_interact === false && (
+                  <p className="text-[11px] text-slate-600">This report is not assigned to a community cluster yet, so voting and comments are unavailable.</p>
+                )}
+                <form onSubmit={submitCommunityComment} className="space-y-2">
+                  <label htmlFor="community-comment" className="text-[11px] font-black text-bottle-800 uppercase block">Comment to authorities</label>
+                  <textarea
+                    id="community-comment"
+                    value={commentText}
+                    onChange={(event) => setCommentText(event.target.value)}
+                    maxLength={1000}
+                    rows={3}
+                    disabled={interactionBusy || selectedDetailReport.can_interact === false}
+                    placeholder="Add information for the authority handling this issue"
+                    className="w-full p-3 bg-white border border-pista-300 rounded-xl text-xs font-semibold text-slate-800 resize-y disabled:opacity-50"
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] text-slate-600">Comments are sent to authorities and are not visible to other citizens.</p>
+                    <button
+                      type="submit"
+                      disabled={interactionBusy || !commentText.trim() || selectedDetailReport.can_interact === false}
+                      className="min-h-[40px] px-3 py-2 bg-bottle-800 text-white rounded-lg text-xs font-black inline-flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Send
+                    </button>
+                  </div>
+                </form>
+                {selectedDetailReport.my_comment && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <span className="text-[10px] font-black text-emerald-900 uppercase block">Your comment was sent</span>
+                    <p className="text-xs text-slate-800 whitespace-pre-wrap mt-1">{selectedDetailReport.my_comment.text}</p>
+                  </div>
+                )}
+                {interactionError && <p role="alert" className="text-xs font-semibold text-red-800">{interactionError}</p>}
               </div>
 
               {/* Report Body / Description */}

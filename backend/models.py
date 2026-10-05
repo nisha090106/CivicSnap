@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text as sql_text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from database import Base
 
 class Report(Base):
@@ -66,6 +66,7 @@ class Report(Base):
     severity_level = Column(String(50), nullable=True, default="Medium")
     ai_severity_confidence = Column(Float, nullable=True)
     ai_severity_reasoning = Column(Text, nullable=True)
+    ai_severity_source = Column(String(50), nullable=True)
     urgency_flagged = Column(Boolean, nullable=False, default=False, server_default="false")
     urgency_notified_at = Column(DateTime(timezone=True), nullable=True)
     
@@ -96,6 +97,7 @@ class ReportCluster(Base):
     priority_score = Column(Float, nullable=True)
     priority_class = Column(String(50), nullable=True)
     score_version = Column(String(50), nullable=True)
+    priority_score_breakdown = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=sql_text("now()"))
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=sql_text("now()"))
 
@@ -188,4 +190,3 @@ class ExternalEngagementSnapshot(Base):
     reply_count = Column(Integer, nullable=False, default=0, server_default="0")
     quote_count = Column(Integer, nullable=False, default=0, server_default="0")
     captured_at = Column(DateTime(timezone=True), nullable=False, server_default=sql_text("now()"))
-

@@ -3,6 +3,13 @@ import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSystemLocation } from '../utils/locationHelper';
 import CommunityMap from '../components/CommunityMap';
+import PriorityScoreTab from '../components/PriorityScoreTab';
+import { selectAuthorityReports } from './authorityReportView';
+import {
+  CATEGORY_FALLBACK_LABEL,
+  isCategoryFallbackSeverity,
+  isRealAiSeverity
+} from '../utils/severityPresentation.js';
 import {
   ShieldCheck,
   LogOut,
@@ -55,39 +62,48 @@ export default function AuthorityDashboard() {
   const activeDepartment = decodeURIComponent(deptParam || user?.department || 'Municipal Corporation');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reportsError, setReportsError] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
   const [activeTab, setActiveTab] = useState('recent');
+  const [reportSort, setReportSort] = useState('recent');
+  const [priorityClassFilter, setPriorityClassFilter] = useState('all');
   const [timeRange, setTimeRange] = useState('Last 30 Days');
   const [currentCity, setCurrentCity] = useState('Detecting...');
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-  const displayReports = reports.filter(report => {
-    if (activeTab === 'assigned') {
-      const repDept = (report.department || '').toLowerCase();
-      const actDept = (activeDepartment || '').toLowerCase();
-      return repDept.includes(actDept) || actDept.includes(repDept);
-    }
-    if (activeTab === 'priority') {
-      const sev = (report.severity_level || '').toLowerCase();
-      return report.urgency_flagged === true || sev === 'high' || sev === 'critical';
-    }
-    return true;
-  });
+  const displayReports = selectAuthorityReports(
+    reports,
+    activeTab,
+    priorityClassFilter,
+    reportSort,
+    activeDepartment
+  );
 
   const fetchDepartmentReports = () => {
-    if (token) {
-      setLoading(true);
-      fetch(`${BACKEND_URL}/api/reports/authority`, {
-        headers: { Authorization: `Bearer ${token}` }
+    if (!token) return;
+
+    setLoading(true);
+    setReportsError('');
+    fetch(`${BACKEND_URL}/api/reports/authority`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Unable to load authority reports.');
+        }
+        if (!Array.isArray(data.reports)) {
+          throw new Error('Authority reports response was invalid.');
+        }
+        setReports(data.reports);
       })
-        .then(res => res.json())
-        .then(data => {
-          if (data.reports) setReports(data.reports);
-        })
-        .catch(err => console.error('Error fetching authority reports:', err))
-        .finally(() => setLoading(false));
-    }
+      .catch((error) => {
+        console.error('Error fetching authority reports:', error);
+        setReports([]);
+        setReportsError(error.message || 'Unable to load authority reports.');
+      })
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -324,15 +340,19 @@ export default function AuthorityDashboard() {
               My Assigned ({reports.filter(r => (r.department || '').toLowerCase().includes(activeDepartment.toLowerCase())).length})
             </button>
             <button
-              onClick={() => setActiveTab('priority')}
+              onClick={() => setActiveTab('ai-urgency')}
               className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap ${
-                activeTab === 'priority'
+                activeTab === 'ai-urgency'
                   ? 'bg-[#072818] text-white shadow-xs'
                   : 'bg-pista-100 text-slate-700 hover:bg-pista-200'
               }`}
             >
-              Priority
+              AI Urgency
             </button>
+            <PriorityScoreTab
+              active={activeTab === 'priority-score'}
+              onClick={() => setActiveTab('priority-score')}
+            />
             <button
               onClick={() => setActiveTab('map')}
               className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
@@ -364,6 +384,40 @@ export default function AuthorityDashboard() {
               <Users className="w-3.5 h-3.5" /> Citizens Hub
             </button>
           </div>
+
+          {(activeTab === 'recent' || activeTab === 'assigned' || activeTab === 'ai-urgency' || activeTab === 'priority-score' || activeTab === 'dashboard') && (
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700">
+                Sort by
+                <select
+                  value={reportSort}
+                  onChange={(event) => setReportSort(event.target.value)}
+                  className="px-3 py-2 bg-white border border-pista-400 rounded-lg text-xs font-bold text-[#072818]"
+                >
+                  <option value="recent">Newest</option>
+                  <option value="status">Status</option>
+                  <option value="priority">Priority score</option>
+                </select>
+              </label>
+              {activeTab === 'priority-score' && (
+                <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700">
+                  Class
+                  <select
+                    value={priorityClassFilter}
+                    onChange={(event) => setPriorityClassFilter(event.target.value)}
+                    className="px-3 py-2 bg-white border border-pista-400 rounded-lg text-xs font-bold text-[#072818]"
+                  >
+                    <option value="all">All classes</option>
+                    <option value="highest">Highest</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                    <option value="lowest">Lowest</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          )}
 
           {/* TAB 1: INTERACTIVE GIS MAP VIEW */}
           {activeTab === 'map' && (
@@ -483,11 +537,21 @@ export default function AuthorityDashboard() {
           )}
 
           {/* REPORTS LIST (FOR RECENT, ASSIGNED, PRIORITY) */}
-          {(activeTab === 'recent' || activeTab === 'assigned' || activeTab === 'priority' || activeTab === 'dashboard') && (
+          {(activeTab === 'recent' || activeTab === 'assigned' || activeTab === 'ai-urgency' || activeTab === 'priority-score' || activeTab === 'dashboard') && (
           <div className="space-y-3">
-            {displayReports.length === 0 ? (
+            {loading ? (
+              <div role="status" className="p-8 text-center bg-pista-50 border border-pista-300 rounded-2xl text-xs font-semibold text-slate-600">
+                Loading department reports...
+              </div>
+            ) : reportsError ? (
+              <div role="alert" className="p-8 text-center bg-rose-50 border border-rose-200 rounded-2xl text-xs font-semibold text-rose-800">
+                {reportsError}
+              </div>
+            ) : displayReports.length === 0 ? (
               <div className="p-8 text-center bg-pista-50 border border-pista-300 rounded-2xl text-xs font-semibold text-slate-600">
-                No reports found in this category.
+                {activeTab === 'priority-score' && priorityClassFilter !== 'all'
+                  ? 'No reports match this priority class.'
+                  : `No reports found for ${activeDepartment}.`}
               </div>
             ) : displayReports.map((report) => {
               const statusClass = 
@@ -524,9 +588,17 @@ export default function AuthorityDashboard() {
                         <span className={`text-[10px] px-2 py-0.5 rounded-md font-extrabold border ${statusClass}`}>
                           {report.status}
                         </span>
-                        {report.urgency_flagged === true && (
+                        {isRealAiSeverity(
+                          report.ai_severity_source,
+                          report.ai_severity_confidence
+                        ) && report.urgency_flagged === true && (
                           <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold border bg-red-100 text-red-900 border-red-300">
                             URGENT
+                          </span>
+                        )}
+                        {report.priority_class && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold border bg-emerald-100 text-emerald-900 border-emerald-300">
+                            {report.priority_class.toUpperCase()} PRIORITY
                           </span>
                         )}
                       </div>
@@ -617,11 +689,21 @@ export default function AuthorityDashboard() {
 
               {(selectedReport.ai_severity_confidence != null || selectedReport.ai_severity_reasoning != null) && (
                 <div className="p-4 bg-pista-50 rounded-2xl border border-pista-300 space-y-2">
-                  <span className="text-[11px] font-black text-[#072818] uppercase block">AI Severity Assessment</span>
+                  <span className="text-[11px] font-black text-[#072818] uppercase block">
+                    {isCategoryFallbackSeverity(
+                      selectedReport.ai_severity_source,
+                      selectedReport.ai_severity_confidence
+                    )
+                      ? CATEGORY_FALLBACK_LABEL
+                      : 'AI Severity Assessment'}
+                  </span>
                   {selectedReport.severity_level != null && (
                     <p className="text-xs font-bold text-slate-800">Severity: {selectedReport.severity_level}</p>
                   )}
-                  {selectedReport.ai_severity_confidence != null && (
+                  {selectedReport.ai_severity_confidence != null && !isCategoryFallbackSeverity(
+                    selectedReport.ai_severity_source,
+                    selectedReport.ai_severity_confidence
+                  ) && (
                     <p className="text-xs font-bold text-slate-800">
                       Confidence: {Math.round(selectedReport.ai_severity_confidence * 100)}%
                     </p>
@@ -629,6 +711,35 @@ export default function AuthorityDashboard() {
                   {selectedReport.ai_severity_reasoning != null && (
                     <p className="text-xs font-semibold text-slate-700 leading-relaxed">
                       {selectedReport.ai_severity_reasoning}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {selectedReport.priority_score != null && selectedReport.score_breakdown && (
+                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span
+                      className="text-[11px] font-black text-emerald-950 uppercase"
+                      title="Priority class reflects community support, with a minimum level for severe AI-flagged issues."
+                    >
+                      Priority Score
+                    </span>
+                    <span className="text-xs font-black text-emerald-950">
+                      {(selectedReport.priority_class || 'lowest').toUpperCase()} · {Number(selectedReport.priority_score).toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-700">
+                    Civic support {Number(selectedReport.score_breakdown.civic_support || 0).toFixed(2)}
+                    {' · '}External support {Number(selectedReport.score_breakdown.external_support || 0).toFixed(2)}
+                    {' · '}Severity {Number(selectedReport.score_breakdown.severity_factor || 0).toFixed(2)}
+                    {' · '}Age {Number(selectedReport.score_breakdown.age_factor || 0).toFixed(2)}
+                  </p>
+                  {selectedReport.score_breakdown.class_decided_by && (
+                    <p className="text-xs font-bold text-slate-700">
+                      Class decided by: {selectedReport.score_breakdown.class_decided_by === 'severity_floor'
+                        ? 'severity floor'
+                        : 'community votes'}
                     </p>
                   )}
                 </div>

@@ -6,7 +6,7 @@ load_dotenv()
 
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
 
-def get_nvidia_client():
+def get_nvidia_client(strict=False):
     if not NVIDIA_API_KEY:
         return None
     try:
@@ -17,6 +17,8 @@ def get_nvidia_client():
         )
     except Exception as e:
         print(f"[NVIDIA LLM Init Error]: {e}")
+        if strict:
+            raise
         return None
 
 def synthesize_soap_into_paragraphs(soap: dict) -> tuple:

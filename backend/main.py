@@ -1,11 +1,12 @@
 import os
 import math
 import uuid
+import jwt
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
-from fastapi import FastAPI, HTTPException, status, Depends, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, status, Depends, BackgroundTasks, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
@@ -15,8 +16,11 @@ from database import engine, Base, SessionLocal, check_db_connection, get_db
 from sqlalchemy.orm import Session
 from sqlalchemy import cast, String, text, or_, func
 from sqlalchemy.exc import IntegrityError
-from auth import get_current_user, get_optional_user, require_citizen, require_authority
+from auth import JWT_SECRET, get_current_user, get_optional_user, require_citizen, require_authority
 import models
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from services.storage_service import save_report_image, calculate_ttl_expiration, cleanup_expired_storage, get_presigned_image_url
 from services.multimodal_service import analyze_and_generate_soap_transcript
@@ -25,6 +29,7 @@ from services.email_service import draft_official_email, anti_hallucination_crit
 from services.classification_service import classify_multimodal_issue
 from services.severity_classification_service import classify_image_severity
 from services.deduplication_service import suggest_merge
+from services.priority_service import compute_priority_score, recalculate_cluster_priority
 
 FEATURE_AI_SEVERITY = os.getenv("FEATURE_AI_SEVERITY", "false").strip().lower() in {
     "1", "true", "yes", "on"
@@ -33,6 +38,41 @@ FEATURE_AI_SEVERITY = os.getenv("FEATURE_AI_SEVERITY", "false").strip().lower() 
 FEATURE_COMMUNITY_MAP = os.getenv("FEATURE_COMMUNITY_MAP", "false").strip().lower() in {
     "1", "true", "yes", "on"
 }
+
+FEATURE_PRIORITY_SCORING = os.getenv("FEATURE_PRIORITY_SCORING", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
+
+
+def _recalculate_priority_safely(cluster_id, db: Session):
+    if not FEATURE_PRIORITY_SCORING or not cluster_id:
+        return
+    try:
+        recalculate_cluster_priority(cluster_id, db)
+    except Exception as error:
+        db.rollback()
+        print(f"[Priority Recalculation Error] {cluster_id}: {error}")
+
+
+def _community_interaction_rate_limit_key(request: Request) -> str:
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() == "bearer" and token:
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            if payload.get("role") == "citizen":
+                citizen_id = payload.get("id") or payload.get("user_id") or payload.get("sub")
+                if citizen_id:
+                    return f"citizen:{citizen_id}"
+        except jwt.PyJWTError:
+            pass
+    return get_remote_address(request)
+
+
+community_interaction_limiter = Limiter(
+    key_func=_community_interaction_rate_limit_key,
+    storage_uri="memory://",
+)
 
 
 def _run_shadow_deduplication(report_id):
@@ -68,12 +108,32 @@ def _normalize_severity_result(severity_result):
     if not isinstance(reasoning, str) or not reasoning.strip() or not isinstance(urgency_flag, bool):
         return None
 
+    source = severity_result.get("source")
+    if source not in {"ai", "category_fallback"}:
+        source = "ai" if confidence_score > 0 else "category_fallback"
+    if source == "category_fallback":
+        urgency_flag = False
+
     return {
         "severity_class": severity_class,
         "confidence_score": min(1.0, max(0.0, confidence_score)),
         "reasoning": reasoning.strip(),
-        "urgency_flag": urgency_flag or severity_class in {"high", "critical"},
+        "urgency_flag": source == "ai" and (
+            urgency_flag or severity_class in {"high", "critical"}
+        ),
+        "source": source,
     }
+
+
+def _stored_severity_source(report):
+    source = getattr(report, "ai_severity_source", None)
+    if source in {"ai", "category_fallback"}:
+        return source
+
+    confidence = getattr(report, "ai_severity_confidence", None)
+    if confidence is None:
+        return None
+    return "ai" if confidence > 0 else "category_fallback"
 
 
 def _apply_severity_result_to_soap(soap_data, severity_result):
@@ -83,7 +143,12 @@ def _apply_severity_result_to_soap(soap_data, severity_result):
     impact_marker = ". Municipal Impact:"
     _, marker_found, impact_details = old_assessment.partition(impact_marker)
 
-    assessment = f"Severity: {severity_level}. AI visual assessment: {severity_result['reasoning']}."
+    source_label = (
+        "Category-based estimate (AI analysis unavailable)"
+        if severity_result.get("source") == "category_fallback"
+        else "AI visual assessment"
+    )
+    assessment = f"Severity: {severity_level}. {source_label}: {severity_result['reasoning']}."
     if marker_found:
         assessment += f"{impact_marker}{impact_details}"
     soap_structure["A"] = assessment
@@ -103,6 +168,7 @@ try:
     with engine.begin() as connection:
         connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS email_id VARCHAR(255)"))
         connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS citizen_email VARCHAR(255)"))
+        connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_severity_source VARCHAR(50)"))
     print("Database tables initialized / verified successfully.")
 except Exception as e:
     print(f"Database initialization notice: {e}")
@@ -113,6 +179,8 @@ app = FastAPI(
     description="FastAPI microservice implementing full multi-modal civic reporting architecture",
     version="2.0.0"
 )
+app.state.limiter = community_interaction_limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -162,6 +230,18 @@ class ReportPreviewRequest(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str
+
+
+class CommunityCommentRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+
+    @field_validator("text")
+    @classmethod
+    def normalize_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Comment text cannot be blank")
+        return normalized
 
 @app.get("/")
 def read_root():
@@ -250,7 +330,8 @@ def preview_civic_report(
                 "severity_class": fallback_severity,
                 "confidence_score": 0.0,
                 "reasoning": "Image severity analysis was unavailable; category-based severity was used.",
-                "urgency_flag": fallback_severity in {"high", "critical"},
+                "urgency_flag": False,
+                "source": "category_fallback",
             }
 
         if req.severity_only:
@@ -260,6 +341,7 @@ def preview_civic_report(
                 "confidence_score": round(severity_result["confidence_score"] * 100, 1),
                 "reasoning": severity_result["reasoning"],
                 "urgency_flag": severity_result["urgency_flag"],
+                "source": severity_result["source"],
                 "severity_result": severity_result,
             }
 
@@ -288,6 +370,7 @@ def preview_civic_report(
             "confidence_score": round(severity_result["confidence_score"] * 100, 1),
             "reasoning": severity_result["reasoning"],
             "urgency_flag": severity_result["urgency_flag"],
+            "source": severity_result["source"],
             "severity_result": severity_result,
             "language": req.language or "en",
             "disclose_identity": req.disclose_identity
@@ -351,11 +434,13 @@ def submit_civic_report(
             severity_confidence = severity_result["confidence_score"]
             severity_reasoning = severity_result["reasoning"]
             urgency_flagged = severity_result["urgency_flag"]
+            severity_source = severity_result["source"]
         else:
             severity_level = soap_data["severity"]
             severity_confidence = None
             severity_reasoning = None
             urgency_flagged = False
+            severity_source = None
 
         citizen_name = req.citizen_name or (user.get("name") if user else None) or "Anonymous Citizen"
         citizen_email = req.citizen_email or (user.get("email") if user else None)
@@ -416,6 +501,7 @@ def submit_civic_report(
             severity_level=severity_level,
             ai_severity_confidence=severity_confidence,
             ai_severity_reasoning=severity_reasoning,
+            ai_severity_source=severity_source,
             urgency_flagged=urgency_flagged,
             ttl_expires_at=calculate_ttl_expiration(15),
             email_draft=critic_result["verified_body"],
@@ -429,6 +515,17 @@ def submit_civic_report(
         db.add(new_report)
         db.commit()
         db.refresh(new_report)
+
+        report_cluster = models.ReportCluster(
+            canonical_report_id=new_report.report_id,
+            status="active",
+        )
+        db.add(report_cluster)
+        db.flush()
+        new_report.cluster_id = report_cluster.cluster_id
+        db.commit()
+        db.refresh(new_report)
+        _recalculate_priority_safely(report_cluster.cluster_id, db)
 
         if urgency_flagged:
             try:
@@ -520,6 +617,7 @@ def get_citizen_reports(
                 {
                     "id": str(r.report_id),
                     "report_id": str(r.report_id),
+                    "cluster_id": str(r.cluster_id) if r.cluster_id else None,
                     "category": r.category,
                     "department": r.department,
                     "description": r.description,
@@ -553,6 +651,7 @@ def get_public_all_reports(db: Session = Depends(get_db)):
                 {
                     "id": str(r.report_id),
                     "report_id": str(r.report_id),
+                    "cluster_id": str(r.cluster_id) if r.cluster_id else None,
                     "category": r.category,
                     "department": r.department,
                     "description": r.description,
@@ -578,6 +677,82 @@ def get_public_all_reports(db: Session = Depends(get_db)):
 def _community_map_enabled():
     if not FEATURE_COMMUNITY_MAP:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community map is disabled")
+
+
+def _citizen_identifier(user: dict) -> Optional[str]:
+    citizen_id = user.get("id") or user.get("user_id") or user.get("sub")
+    return str(citizen_id) if citizen_id else None
+
+
+def _comment_payload(comment, include_author=False):
+    payload = {
+        "comment_id": str(comment.comment_id),
+        "cluster_id": str(comment.cluster_id),
+        "text": comment.text,
+        "created_at": comment.created_at.isoformat() if comment.created_at else None,
+    }
+    if include_author:
+        payload["author_id"] = comment.author_id
+        payload["is_hidden"] = comment.is_hidden
+    return payload
+
+
+def _add_community_audit(db, entity_type, entity_id, action, actor_id, details):
+    db.add(models.AuditLog(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=action,
+        actor_id=actor_id,
+        details=details,
+    ))
+
+
+def _get_community_cluster(db: Session, target_id: uuid.UUID, lock=False):
+    cluster_query = db.query(models.ReportCluster).filter(
+        models.ReportCluster.cluster_id == target_id
+    )
+    if lock:
+        cluster_query = cluster_query.with_for_update()
+    cluster = cluster_query.first()
+    if cluster is not None:
+        return cluster
+
+    report = db.get(models.Report, target_id)
+    if report is not None:
+        if report.cluster_id:
+            cluster_query = db.query(models.ReportCluster).filter(
+                models.ReportCluster.cluster_id == report.cluster_id
+            )
+            if lock:
+                cluster_query = cluster_query.with_for_update()
+            cluster = cluster_query.first()
+            if cluster is not None:
+                return cluster
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This report is not assigned to a community cluster yet",
+        )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
+
+
+def _require_authority_cluster_scope(db: Session, cluster, user: dict):
+    report = db.get(models.Report, cluster.canonical_report_id) if cluster.canonical_report_id else None
+    if report is None:
+        report = db.query(models.Report).filter(
+            models.Report.cluster_id == cluster.cluster_id
+        ).order_by(models.Report.created_at.asc()).first()
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
+
+    department = user.get("department")
+    if department:
+        scoped_report = db.query(models.Report.report_id).filter(
+            models.Report.report_id == report.report_id,
+            models.Report.department.ilike(f"%{department}%"),
+        ).first()
+        if scoped_report is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
+    return report
 
 
 def _community_report_payload(report, cluster_id, upvote_count, include_description=False):
@@ -695,12 +870,32 @@ def get_community_reports(
 
 
 @app.get("/api/community/reports/{cluster_id}")
-def get_community_report(cluster_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_community_report(
+    cluster_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: Optional[dict] = Depends(get_optional_user),
+):
     _community_map_enabled()
     try:
         reports = _community_reports_query(db, include_description=True)
         for report in reports:
             if report["cluster_id"] == str(cluster_id):
+                is_real_cluster = db.query(models.ReportCluster.cluster_id).filter(
+                    models.ReportCluster.cluster_id == cluster_id
+                ).first() is not None
+                report["can_interact"] = is_real_cluster
+                if user and user.get("role") == "citizen":
+                    citizen_id = _citizen_identifier(user)
+                    if citizen_id:
+                        report["my_vote"] = db.query(models.Vote.vote_id).filter(
+                            models.Vote.cluster_id == cluster_id,
+                            models.Vote.citizen_id == citizen_id,
+                        ).first() is not None
+                        own_comment = db.query(models.Comment).filter(
+                            models.Comment.cluster_id == cluster_id,
+                            models.Comment.author_id == citizen_id,
+                        ).order_by(models.Comment.created_at.desc()).first()
+                        report["my_comment"] = _comment_payload(own_comment) if own_comment else None
                 return report
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
     except HTTPException:
@@ -746,33 +941,163 @@ def get_deduplication_suggestions(
         return {"count": 0, "suggestions": []}
 
 
-@app.post("/api/community/reports/{cluster_id}/upvote")
+@app.post("/api/community/reports/{cluster_id}/upvote", dependencies=[Depends(_community_map_enabled)])
+@community_interaction_limiter.shared_limit("10/minute", scope="community-interactions")
 def upvote_community_report(
+    request: Request,
     cluster_id: uuid.UUID,
     db: Session = Depends(get_db),
     user: dict = Depends(require_citizen),
 ):
     try:
-        cluster = db.get(models.ReportCluster, cluster_id)
-        if cluster is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
-
-        citizen_id = user.get("id") or user.get("user_id") or user.get("sub")
+        cluster = _get_community_cluster(db, cluster_id, lock=True)
+        citizen_id = _citizen_identifier(user)
         if not citizen_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Citizen identity is missing")
 
-        db.add(models.Vote(cluster_id=cluster_id, citizen_id=str(citizen_id)))
+        existing_vote = db.query(models.Vote).filter(
+            models.Vote.cluster_id == cluster.cluster_id,
+            models.Vote.citizen_id == citizen_id,
+        ).first()
+        if existing_vote:
+            db.delete(existing_vote)
+            voted = False
+            action = "vote_removed"
+            vote_id = existing_vote.vote_id
+        else:
+            vote = models.Vote(cluster_id=cluster.cluster_id, citizen_id=citizen_id)
+            db.add(vote)
+            db.flush()
+            voted = True
+            action = "vote_created"
+            vote_id = vote.vote_id
+
+        _add_community_audit(
+            db,
+            "vote",
+            vote_id,
+            action,
+            citizen_id,
+            {"cluster_id": str(cluster.cluster_id)},
+        )
+        db.flush()
+        upvote_count = db.query(models.Vote).filter(
+            models.Vote.cluster_id == cluster.cluster_id
+        ).count()
         db.commit()
-        return {"success": True, "cluster_id": str(cluster_id)}
+        _recalculate_priority_safely(cluster.cluster_id, db)
+        return {
+            "success": True,
+            "cluster_id": str(cluster.cluster_id),
+            "voted": voted,
+            "upvote_count": upvote_count,
+        }
     except HTTPException:
         raise
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Citizen has already upvoted this report")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to toggle vote; please retry")
     except Exception as e:
         db.rollback()
         print(f"[Community Upvote Error]: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to record upvote")
+
+
+@app.post("/api/community/reports/{cluster_id}/comments", dependencies=[Depends(_community_map_enabled)])
+@community_interaction_limiter.shared_limit("10/minute", scope="community-interactions")
+def create_community_comment(
+    request: Request,
+    cluster_id: uuid.UUID,
+    req: CommunityCommentRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_citizen),
+):
+    try:
+        cluster = _get_community_cluster(db, cluster_id)
+        author_id = _citizen_identifier(user)
+        if not author_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Citizen identity is missing")
+
+        recent_duplicate_count = db.query(models.Comment).filter(
+            models.Comment.author_id == author_id,
+            func.lower(models.Comment.text) == req.text.casefold(),
+            models.Comment.created_at >= datetime.now(timezone.utc) - timedelta(minutes=10),
+        ).count()
+        if recent_duplicate_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Repeated comment text is temporarily blocked",
+            )
+
+        comment = models.Comment(
+            cluster_id=cluster.cluster_id,
+            author_id=author_id,
+            text=req.text,
+        )
+        db.add(comment)
+        db.flush()
+        _add_community_audit(
+            db,
+            "comment",
+            comment.comment_id,
+            "comment_created",
+            author_id,
+            {"cluster_id": str(cluster.cluster_id)},
+        )
+        db.commit()
+        db.refresh(comment)
+        return _comment_payload(comment)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"[Community Comment Error]: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to submit comment")
+
+
+@app.get("/api/reports/{report_or_cluster_id}/comments", dependencies=[Depends(_community_map_enabled)])
+def get_report_comments(
+    report_or_cluster_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_authority),
+):
+    cluster = _get_community_cluster(db, report_or_cluster_id)
+    _require_authority_cluster_scope(db, cluster, user)
+    comments = db.query(models.Comment).filter(
+        models.Comment.cluster_id == cluster.cluster_id
+    ).order_by(models.Comment.created_at.asc()).all()
+    return {
+        "cluster_id": str(cluster.cluster_id),
+        "comments": [_comment_payload(comment, include_author=True) for comment in comments],
+    }
+
+
+@app.post("/api/reports/comments/{comment_id}/hide", dependencies=[Depends(_community_map_enabled)])
+def hide_report_comment(
+    comment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_authority),
+):
+    comment = db.get(models.Comment, comment_id)
+    if comment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+    cluster = db.get(models.ReportCluster, comment.cluster_id)
+    if cluster is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Community report not found")
+    _require_authority_cluster_scope(db, cluster, user)
+
+    comment.is_hidden = True
+    _add_community_audit(
+        db,
+        "comment",
+        comment.comment_id,
+        "comment_hidden",
+        _citizen_identifier(user) or str(user.get("id") or user.get("sub") or "authority"),
+        {"cluster_id": str(cluster.cluster_id)},
+    )
+    db.commit()
+    _recalculate_priority_safely(cluster.cluster_id, db)
+    return {"success": True, "comment_id": str(comment.comment_id), "is_hidden": True}
 
 # 3. AUTHORITY DEPARTMENT FEED: GET /api/reports/authority
 @app.get("/api/reports/authority")
@@ -780,13 +1105,51 @@ def get_authority_reports(
     db: Session = Depends(get_db),
     user: dict = Depends(require_authority)
 ):
+    dept = user.get("department")
+    if not isinstance(dept, str) or not dept.strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Authority department is required",
+        )
+
     try:
-        dept = user.get("department")
-        query = db.query(models.Report)
-        if dept:
-            query = query.filter(models.Report.department.ilike(f"%{dept}%"))
+        query = db.query(models.Report).filter(
+            func.lower(func.trim(models.Report.department)) == dept.strip().lower()
+        )
 
         reports = query.order_by(models.Report.created_at.desc()).all()
+        clusters_by_id = {}
+        priority_cluster_sizes = {}
+        cluster_ids = {report.cluster_id for report in reports if report.cluster_id}
+        if cluster_ids:
+            clusters_by_id = {
+                cluster.cluster_id: cluster
+                for cluster in db.query(models.ReportCluster)
+                .filter(models.ReportCluster.cluster_id.in_(cluster_ids))
+                .all()
+            }
+            priority_cluster_sizes = dict(
+                db.query(
+                    models.ReportClusterMember.cluster_id,
+                    func.count(models.ReportClusterMember.member_id),
+                )
+                .filter(models.ReportClusterMember.cluster_id.in_(cluster_ids))
+                .group_by(models.ReportClusterMember.cluster_id)
+                .all()
+            )
+
+        priority_values = {}
+        for cluster_id, cluster in clusters_by_id.items():
+            try:
+                score, priority_class, breakdown, _ = compute_priority_score(cluster_id, db)
+                priority_values[cluster_id] = (priority_class, score, breakdown)
+            except Exception as error:
+                print(f"[Authority Priority Score Error] {cluster_id}: {error}")
+                priority_values[cluster_id] = (
+                    cluster.priority_class,
+                    cluster.priority_score,
+                    cluster.priority_score_breakdown,
+                )
 
         return {
             "role": "authority",
@@ -812,17 +1175,28 @@ def get_authority_reports(
                     "severity_level": r.severity_level,
                     "ai_severity_confidence": r.ai_severity_confidence,
                     "ai_severity_reasoning": r.ai_severity_reasoning,
-                    "urgency_flagged": r.urgency_flagged,
+                    "ai_severity_source": _stored_severity_source(r),
+                    "urgency_flagged": (
+                        bool(r.urgency_flagged)
+                        and _stored_severity_source(r) == "ai"
+                    ),
                     "urgency_notified_at": r.urgency_notified_at.isoformat() if r.urgency_notified_at else None,
                     "created_at": r.created_at.isoformat() if r.created_at else None,
-                    "vote_count": r.vote_count or 0
+                    "vote_count": r.vote_count or 0,
+                    "priority_class": priority_values.get(r.cluster_id, (None, None, None))[0],
+                    "priority_score": priority_values.get(r.cluster_id, (None, None, None))[1],
+                    "score_breakdown": priority_values.get(r.cluster_id, (None, None, None))[2],
+                    "cluster_size": max(priority_cluster_sizes.get(r.cluster_id, 0), 1),
                 }
                 for r in reports
             ]
         }
     except Exception as e:
         print(f"[Authority Reports Error]: {e}")
-        return {"role": "authority", "department": user.get("department"), "count": 0, "reports": []}
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to fetch authority reports",
+        ) from e
 
 def find_report_by_id(db: Session, report_id: str):
     """Robust report finder by UUID or string representation."""
@@ -950,6 +1324,7 @@ def update_report_status(
         report.status = new_status
         db.commit()
         db.refresh(report)
+        _recalculate_priority_safely(report.cluster_id, db)
 
         # Dispatch automated status update email notification to the reporting citizen if status changed
         email_notification_result = None
@@ -998,4 +1373,3 @@ def update_report_status(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-

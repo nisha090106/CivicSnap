@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
+  CATEGORY_FALLBACK_LABEL,
+  isCategoryFallbackSeverity
+} from '../utils/severityPresentation.js';
+import {
   Camera,
   X,
   MapPin,
@@ -118,7 +122,10 @@ export default function ReportIssueModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (data.success && data.severity_result) {
-        setSeverityData(data);
+        setSeverityData({
+          ...data,
+          source: data.source || data.severity_result.source
+        });
         return data;
       }
     } catch (err) {
@@ -845,7 +852,14 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                   {imageSrc && (severityLoading || severityData?.severity_class) && (
                     <div className="p-4 bg-white rounded-2xl border border-pista-400 shadow-sm space-y-2.5">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">AI Image Severity</span>
+                        <span className="text-xs font-black text-bottle-800 uppercase tracking-wider">
+                          {isCategoryFallbackSeverity(
+                            severityData?.source,
+                            severityData?.confidence_score
+                          )
+                            ? 'Severity Estimate'
+                            : 'AI Image Severity'}
+                        </span>
                         {severityLoading ? (
                           <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-bottle-800">
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Assessing image...
@@ -855,12 +869,22 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                             <span className={`inline-flex px-2.5 py-1 rounded-lg border text-[11px] font-black uppercase ${SEVERITY_STYLES[severityData.severity_class.toLowerCase()] || SEVERITY_STYLES.medium}`}>
                               {severityData.severity_class}
                             </span>
-                            {severityData.confidence_score != null && (
+                            {isCategoryFallbackSeverity(
+                              severityData.source,
+                              severityData.confidence_score
+                            ) ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold border bg-amber-100 text-amber-900 border-amber-300">
+                                {CATEGORY_FALLBACK_LABEL}
+                              </span>
+                            ) : severityData.confidence_score != null && (
                               <span className="text-[11px] font-black text-bottle-800 bg-pista-100 px-2 py-0.5 rounded-md border border-pista-300">
                                 {Math.round(severityData.confidence_score)}% confidence
                               </span>
                             )}
-                            {severityData.urgency_flag === true && (
+                            {!isCategoryFallbackSeverity(
+                              severityData.source,
+                              severityData.confidence_score
+                            ) && severityData.urgency_flag === true && (
                               <span className="text-[10px] px-2 py-0.5 rounded-md font-extrabold border bg-red-100 text-red-900 border-red-300">
                                 Marked Urgent
                               </span>
@@ -1056,4 +1080,3 @@ export default function ReportIssueModal({ isOpen, onClose }) {
     </div>
   );
 }
-

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, Building2, Mail, Lock, ArrowRight } from 'lucide-react';
+import { AUTHORITY_DEPARTMENTS } from '../constants/authorityDepartments';
 
 const DEPARTMENT_CREDENTIALS = {
   "Road & Transport": { email: "roadtransport@civicsnap.gov.in", password: "RoadTransport@2026!" },
@@ -13,7 +14,7 @@ const DEPARTMENT_CREDENTIALS = {
   "Gram Panchayat": { email: "grampanchayat@civicsnap.gov.in", password: "GramPanchayat@2026!" },
 };
 
-const DEPARTMENTS = Object.keys(DEPARTMENT_CREDENTIALS);
+const DEPARTMENTS = AUTHORITY_DEPARTMENTS;
 
 export default function AuthorityLogin() {
   const { emailSignIn } = useAuth();

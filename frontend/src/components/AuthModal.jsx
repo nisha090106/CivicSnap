@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck, Camera } from 'lucide-react';
+import { AUTHORITY_DEPARTMENTS } from '../constants/authorityDepartments';
 
 const DEPARTMENT_CREDENTIALS = {
   'Road & Transport': { email: 'roadtransport@civicsnap.gov.in', password: 'RoadTransport@2026!' },
@@ -14,7 +15,7 @@ const DEPARTMENT_CREDENTIALS = {
   'Gram Panchayat': { email: 'grampanchayat@civicsnap.gov.in', password: 'GramPanchayat@2026!' }
 };
 
-const DEPARTMENTS = Object.keys(DEPARTMENT_CREDENTIALS);
+const DEPARTMENTS = AUTHORITY_DEPARTMENTS;
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
   const { sendOtp, verifyOtp, googleSignIn, emailSignIn, emailSignUp } = useAuth();
@@ -433,4 +434,3 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     </div>
   );
 }
-

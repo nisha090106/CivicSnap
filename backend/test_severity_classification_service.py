@@ -17,6 +17,7 @@ class SeverityClassificationTests(unittest.TestCase):
             "confidence_score": 0.91,
             "reasoning": "The image shows a live electrical wire down across a public walkway.",
             "urgency_flag": True,
+            "source": "ai",
         }
 
         class FakeCompletions:
@@ -40,24 +41,41 @@ class SeverityClassificationTests(unittest.TestCase):
         self.assertEqual(result, response)
         request_content = completions.request["messages"][0]["content"]
         self.assertEqual(completions.request["model"], severity_service.VISION_MODEL)
+        self.assertEqual(
+            completions.request["response_format"],
+            {"type": "json_object"},
+        )
         self.assertEqual(request_content[1]["type"], "image_url")
         self.assertTrue(request_content[1]["image_url"]["url"].startswith("data:image/png;base64,"))
+        prompt = request_content[0]["text"]
+        self.assertIn("illustrative FORMAT EXAMPLE only", prompt)
+        self.assertIn("do not copy the example wording", prompt)
+        self.assertIn("grounded in visible", prompt)
+        self.assertIn("visible pests or insects on food, contamination, mold", prompt)
+        self.assertIn("should generally be rated High", prompt)
+        self.assertIn("do not claim exposure or harm that the image cannot establish", prompt)
 
-    def test_classify_image_severity_uses_static_fallback_without_client(self):
+    def test_category_fallback_is_not_urgent_and_logs_failure_reason(self):
         with patch.object(severity_service, "get_nvidia_client", return_value=None):
-            result = severity_service.classify_image_severity("/missing.png", "pothole", "")
+            with self.assertLogs(
+                "services.severity_classification_service", level="WARNING"
+            ) as logs:
+                result = severity_service.classify_image_severity(
+                    "/missing.png", "pothole", ""
+                )
 
         self.assertEqual(result["severity_class"], "high")
         self.assertEqual(result["confidence_score"], 0.0)
-        self.assertTrue(result["urgency_flag"])
+        self.assertFalse(result["urgency_flag"])
+        self.assertEqual(result["source"], "category_fallback")
         self.assertIn("category-based fallback", result["reasoning"])
+        self.assertIn("client initialization failed", logs.output[0])
 
     def test_parse_response_validates_and_clamps_fields(self):
         result = severity_service._parse_response(
             '```json\n{"severity_class":"HIGH","confidence_score":1.4,'
             '"reasoning":"Major visible damage.","urgency_flag":false}\n```'
         )
-
         self.assertEqual(
             result,
             {
@@ -65,11 +83,40 @@ class SeverityClassificationTests(unittest.TestCase):
                 "confidence_score": 1.0,
                 "reasoning": "Major visible damage.",
                 "urgency_flag": True,
+                "source": "ai",
             },
         )
 
-    def test_malformed_model_response_uses_category_fallback(self):
-        message = SimpleNamespace(content="severity is high, but no JSON was returned")
+    def test_parse_response_accepts_labeled_model_answer(self):
+        result = severity_service._parse_response(
+            "**Severity Class:** High\n"
+            "**Confidence Score:** 0.9\n"
+            "**Reasoning:** The leak spreads across the walkway, creating a visible slip hazard.\n"
+            "**Urgency Flag:** True"
+        )
+
+        self.assertEqual(result["severity_class"], "high")
+        self.assertEqual(result["confidence_score"], 0.9)
+        self.assertTrue(result["urgency_flag"])
+        self.assertEqual(result["source"], "ai")
+        self.assertIn("visible slip hazard", result["reasoning"])
+
+    def test_parse_response_rejects_example_reasoning(self):
+        with self.assertRaisesRegex(ValueError, "example text"):
+            severity_service._parse_response(
+                '{"severity_class":"medium","confidence_score":0.75,'
+                '"reasoning":"One or two plain-language sentences grounded in visible evidence.",'
+                '"urgency_flag":false}'
+            )
+
+    def test_example_model_reasoning_uses_category_fallback(self):
+        message = SimpleNamespace(
+            content=(
+                '{"severity_class":"medium","confidence_score":0.75,'
+                '"reasoning":"One or two plain-language sentences grounded in visible evidence.",'
+                '"urgency_flag":false}'
+            )
+        )
         completion = SimpleNamespace(choices=[SimpleNamespace(message=message)])
         client = SimpleNamespace(
             chat=SimpleNamespace(
@@ -82,7 +129,32 @@ class SeverityClassificationTests(unittest.TestCase):
             )
 
         self.assertEqual(result["severity_class"], "high")
+        self.assertEqual(result["source"], "category_fallback")
+        self.assertFalse(result["urgency_flag"])
         self.assertIn("category-based fallback", result["reasoning"])
+
+    def test_non_json_model_response_uses_non_urgent_category_fallback(self):
+        message = SimpleNamespace(
+            content="Severity: High. The image appears to show a leak."
+        )
+        completion = SimpleNamespace(choices=[SimpleNamespace(message=message)])
+        client = SimpleNamespace(
+            chat=SimpleNamespace(
+                completions=SimpleNamespace(create=lambda **kwargs: completion)
+            )
+        )
+        with patch.object(severity_service, "get_nvidia_client", return_value=client):
+            with self.assertLogs(
+                "services.severity_classification_service", level="WARNING"
+            ) as logs:
+                result = severity_service.classify_image_severity(
+                    "data:image/jpeg;base64,dGVzdA==", "water", ""
+                )
+
+        self.assertEqual(result["source"], "category_fallback")
+        self.assertEqual(result["confidence_score"], 0.0)
+        self.assertFalse(result["urgency_flag"])
+        self.assertIn("valid severity class field", logs.output[0])
 
     def test_soap_keeps_legacy_static_severity(self):
         soap_data = multimodal_service.analyze_and_generate_soap_transcript(
