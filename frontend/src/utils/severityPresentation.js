@@ -1,5 +1,5 @@
 export const CATEGORY_FALLBACK_LABEL =
-  'Estimated from category (AI analysis unavailable)';
+  'Estimated from issue category';
 
 export function isCategoryFallbackSeverity(source, confidence) {
   return source === 'category_fallback'

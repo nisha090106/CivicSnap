@@ -92,11 +92,10 @@ export default function ReportIssueModal({ isOpen, onClose }) {
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const [gpsLocation, setGpsLocation] = useState({ lat: '19.0760', lng: '72.8777' });
 
-  // AI Multi-Modal Classification State
+  // Issue category suggestion state
   const [classifying, setClassifying] = useState(false);
   const [classificationResult, setClassificationResult] = useState(null);
   const [isManualOverride, setIsManualOverride] = useState(false);
-  const [showModelBreakdown, setShowModelBreakdown] = useState(false);
 
   const requestImageSeverity = async (imgData, category, textDesc) => {
     if (!imgData || !category) return null;
@@ -159,10 +158,10 @@ export default function ReportIssueModal({ isOpen, onClose }) {
         await requestImageSeverity(imgData, severityCategory, textDesc);
       }
     } catch (err) {
-      console.warn('[AI Classification Notice]:', err);
+      console.warn('[Issue Category Suggestion Notice]:', err);
       setClassificationResult({
         status: 'needs_manual_review',
-        message: 'AI classification offline. Please select the destination authority department manually below.'
+        message: 'Please choose the issue category and destination department below.'
       });
     } finally {
       setClassifying(false);
@@ -502,6 +501,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
       const data = await res.json();
       if (data.success) {
         setSubmitResult(data);
+        setStep(3);
         setSubmitted(true);
         purgePreviewCache();
         window.dispatchEvent(new CustomEvent('civicsnap:reportSubmitted'));
@@ -518,6 +518,8 @@ export default function ReportIssueModal({ isOpen, onClose }) {
       }
     } catch (err) {
       console.warn('[Report Submission Warning] Backend offline, simulating submission:', err);
+      setSubmitResult(null);
+      setStep(3);
       setSubmitted(true);
       purgePreviewCache();
       setTimeout(() => {
@@ -569,8 +571,8 @@ export default function ReportIssueModal({ isOpen, onClose }) {
             <span>Details</span>
           </div>
           <div className="w-4 h-0.5 bg-pista-400"></div>
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-pista-300 text-slate-700">
-            <span className="w-4 h-4 rounded-full bg-slate-400 text-white flex items-center justify-center text-[10px]">3</span>
+          <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full ${step === 3 ? 'bg-[#072818] text-white shadow-xs' : 'bg-pista-300 text-slate-700'}`}>
+            <span className={`w-4 h-4 rounded-full text-white flex items-center justify-center text-[10px] ${step === 3 ? 'bg-emerald-500' : 'bg-slate-400'}`}>3</span>
             <span>Submit</span>
           </div>
         </div>
@@ -579,29 +581,14 @@ export default function ReportIssueModal({ isOpen, onClose }) {
           {submitted ? (
             <div className="py-8 text-center space-y-4">
               <div className="w-16 h-16 rounded-full bg-bottle-800 border border-bottle-700 text-white flex items-center justify-center mx-auto shadow-xl">
-                <CheckCircle2 className="w-10 h-10 animate-bounce text-white" />
+                <CheckCircle2 className="w-10 h-10 text-white" />
               </div>
               <div>
-                <h4 className="text-2xl font-black text-bottle-900">Report Registered & Routed!</h4>
-                <p className="text-xs text-slate-700 font-semibold max-w-xs mx-auto mt-1">
-                  {submitResult?.anonymous_disclaimer || "Your issue report has been logged and routed to municipal authorities."}
+                <h4 className="text-2xl font-black text-bottle-900">Report Submitted</h4>
+                <p className="text-xs text-slate-700 font-semibold mt-1">
+                  Routed to: {submitResult?.authority_name || CATEGORIES.find((category) => category.id === selectedCategory)?.department}
                 </p>
               </div>
-
-              {submitResult && (
-                <div className="bg-white rounded-2xl p-4 border border-pista-400 text-left space-y-2 max-h-48 overflow-y-auto font-mono text-[11px] shadow-inner text-slate-800">
-                  <div className="font-black text-bottle-800 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-bottle-800" />
-                    Routed to: {submitResult.authority_name}
-                  </div>
-                  <div className="text-[10px] text-emerald-700 font-bold">
-                    ✓ Anti-Hallucination Critic: {submitResult.critic_verdict}
-                  </div>
-                  <div className="text-[10px] text-slate-600 border-t border-slate-200 pt-2 whitespace-pre-wrap">
-                    {submitResult.soap_transcript}
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -754,20 +741,20 @@ export default function ReportIssueModal({ isOpen, onClose }) {
               {/* STEP 1: DETAILS & PHOTO CAPTURE */}
               {step === 1 ? (
                 <>
-                  {/* AI Multi-Modal Auto-Classification Status Card */}
+                  {/* Issue category suggestion */}
                   {imageSrc && (
                     <div className="p-4 bg-white rounded-2xl border border-pista-400 shadow-sm space-y-3 transition-all duration-300">
                       {classifying ? (
                         <div className="flex items-center gap-3 text-bottle-900 font-extrabold text-xs py-1">
                           <RefreshCw className="w-5 h-5 animate-spin text-bottle-800" />
-                          <span>AI Multi-Modal Engine analyzing evidence photo...</span>
+                          <span>Reviewing your photo...</span>
                         </div>
                       ) : classificationResult?.status === 'classified' ? (
                         <div className="space-y-2.5">
                           <div className="flex items-center justify-between flex-wrap gap-2">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-[11px] font-black uppercase tracking-wider">
-                              <Sparkles className="w-3.5 h-3.5 text-emerald-700 animate-pulse" />
-                              {classificationResult.winning_model || 'Specialized Domain Evaluator'}
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                              Suggested category
                             </span>
                             <span className="text-[11px] font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                               {classificationResult.confidence_percent || Math.round((classificationResult.confidence_score || 0) * 100)}% Match
@@ -777,11 +764,11 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                           <div className="p-3.5 bg-pista-50/80 rounded-xl border border-pista-300 flex items-center justify-between gap-3">
                             <div>
                               <div className="text-xs font-black text-bottle-900">
-                                Detected: <span className="text-emerald-900">{classificationResult.category_label}</span>
+                                Issue: <span className="text-emerald-900">{classificationResult.category_label}</span>
                               </div>
                               <div className="text-[11px] font-extrabold text-bottle-700 flex items-center gap-1 mt-0.5">
                                 <ShieldCheck className="w-3.5 h-3.5 text-bottle-800" />
-                                Target Authority: <span className="underline font-black">{classificationResult.target_department}</span>
+                                Department: <span className="underline font-black">{classificationResult.target_department}</span>
                               </div>
                             </div>
 
@@ -796,53 +783,20 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                               }`}
                             >
                               <Edit3 className="w-3.5 h-3.5 text-bottle-800" />
-                              {isManualOverride ? 'Override Active' : 'Classification wrong?'}
+                              {isManualOverride ? 'Changing category' : 'Change category'}
                             </button>
                           </div>
 
-                          {/* Expandable Multi-Model Ensemble Breakdown */}
-                          {classificationResult.all_model_confidences && classificationResult.all_model_confidences.length > 0 && (
-                            <div className="pt-1.5 border-t border-pista-200">
-                              <button
-                                type="button"
-                                onClick={() => setShowModelBreakdown(!showModelBreakdown)}
-                                className="text-[11px] font-black text-bottle-800 hover:text-bottle-600 flex items-center gap-1 cursor-pointer"
-                              >
-                                <span>{showModelBreakdown ? '▼ Hide' : '▶ Compare'} All 6 Domain Models</span>
-                              </button>
-
-                              {showModelBreakdown && (
-                                <div className="mt-2 space-y-1.5 p-2.5 bg-pista-100/70 rounded-xl border border-pista-300 font-mono text-[11px]">
-                                  {classificationResult.all_model_confidences.map((m, idx) => (
-                                    <div key={m.model_id} className="flex items-center justify-between">
-                                      <span className="font-semibold text-slate-800 flex items-center gap-1">
-                                        {idx === 0 ? '🏆' : '•'} {m.model_name}
-                                      </span>
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-20 bg-slate-200 h-2 rounded-full overflow-hidden">
-                                          <div
-                                            className={`h-full ${idx === 0 ? 'bg-emerald-600' : 'bg-slate-400'}`}
-                                            style={{ width: `${m.confidence}%` }}
-                                          ></div>
-                                        </div>
-                                        <span className="font-black text-bottle-900 w-9 text-right">{m.confidence}%</span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       ) : (
-                        /* Low confidence / offline fallback prompt */
+                        /* Ask the resident to select the category when no suggestion is available. */
                         <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 space-y-1.5 text-amber-900">
                           <div className="flex items-center gap-2 text-xs font-black">
                             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                            <span>AI Confidence Low or Offline</span>
+                            <span>Choose an issue category</span>
                           </div>
                           <p className="text-[11px] font-semibold text-amber-800 leading-snug">
-                            {classificationResult?.message || "Please select the target authority department manually below."}
+                            Select the category and destination department below.
                           </p>
                         </div>
                       )}
@@ -858,7 +812,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                             severityData?.confidence_score
                           )
                             ? 'Severity Estimate'
-                            : 'AI Image Severity'}
+                            : 'Severity Estimate'}
                         </span>
                         {severityLoading ? (
                           <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-bottle-800">
@@ -900,7 +854,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                     </div>
                   )}
 
-                  {/* CONDITIONAL CATEGORY & AUTHORITY SELECTOR (Appears ONLY if Citizen clicks Override OR AI is uncertain) */}
+                  {/* Show the category and authority selector when the resident requests a change or review is needed. */}
                   {(isManualOverride || classificationResult?.status === 'needs_manual_review') && (
                     <div className="space-y-3 p-4 bg-amber-50/80 rounded-2xl border-2 border-amber-300 shadow-sm transition-all duration-300">
                       <div className="flex items-center justify-between">
@@ -917,7 +871,7 @@ export default function ReportIssueModal({ isOpen, onClose }) {
                             }}
                             className="text-[10px] text-amber-900 font-extrabold underline flex items-center gap-1 hover:text-amber-950 cursor-pointer"
                           >
-                            <RotateCcw className="w-3 h-3" /> Reset to AI Result ({classificationResult.category_label})
+                            <RotateCcw className="w-3 h-3" /> Reset to suggested category ({classificationResult.category_label})
                           </button>
                         )}
                       </div>

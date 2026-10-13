@@ -68,7 +68,7 @@ export default function IntroLoader({ duration = 2000 }) {
           <div className="text-center px-6">
             <div className="flex flex-col items-center gap-3">
               <div className="text-4xl sm:text-5xl font-black tracking-tight">CivicSnap</div>
-              <div className="text-xs font-extrabold text-pista-300 uppercase tracking-widest">AI CIVIC ISSUE REPORTING</div>
+              <div className="text-xs font-extrabold text-pista-300 uppercase tracking-widest">CIVIC ISSUE REPORTING</div>
             </div>
 
             <div className="mt-6">

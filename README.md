@@ -1,432 +1,361 @@
-# CivicSnap
+﻿# CivicSnap
 
-## Project Overview
+CivicSnap is a civic issue reporting and resolution platform designed to help citizens report public problems quickly and help local authorities manage, route, and resolve them efficiently. Citizens can capture or upload evidence, add a description, and submit the issue to the correct department. The platform adds AI-powered classification, multilingual complaint drafting, route assignment, and status tracking for better civic service delivery.
 
-CivicSnap is a civic issue reporting platform for citizens and municipal authorities. A citizen can capture or upload evidence of a public issue, add a description and location, review an automatically generated complaint, and submit it to the responsible department. Authorities can view department-specific reports, inspect evidence and locations, and move reports through their resolution lifecycle.
+The project brings together a React frontend, an Express authentication service, and a FastAPI backend with PostgreSQL persistence, AI/ML services, and optional cloud integrations for storage and notifications.
 
-The current implementation combines a React web client, an Express authentication service, and a FastAPI reporting and AI service backed by PostgreSQL.
+## Why CivicSnap?
 
-![CivicSnap high-level architecture](./CP-High-Level-Design-Updated.png)
+Public issues such as potholes, garbage, water leakage, broken street lights, sanitation problems, and forest or wildlife concerns are often underreported or tracked through fragmented systems. CivicSnap makes reporting simple, verifiable, and actionable by combining evidence capture, automated classification, department routing, and authority workflows in one platform.
 
-## Current Implementation Status
+## Core Features
 
-Implemented in the repository:
+### Citizen Features
+- Report civic issues using image upload or live camera capture
+- Add description, GPS coordinates, optional identity disclosure, and language preference
+- AI-powered classification for categories including:
+  - Road and pothole damage
+  - Garbage and waste disposal
+  - Water leakage
+  - Street light and electrical faults
+  - Food and sanitation issues
+  - Forest and wildlife-related issues
+- Manual category override when model confidence is low
+- Multilingual complaint preview generation in English, Hindi, Marathi, Gujarati, and Tamil
+- Public map of submitted reports with status-based markers
+- Personal report history dashboard with evidence and status details
+- Notifications and profile access for citizen users
 
-- Citizen and authority portals with protected, role-aware routes.
-- Email/password, phone OTP, and Google sign-in flows.
-- Authority department selection and approval gating.
-- Camera capture, image upload, camera switching, and image retake.
-- Browser geolocation with Maharashtra location fallback data.
-- Multimodal issue classification using local CLIP, visual heuristics, and description keywords.
-- Automatic authority department routing for six issue categories.
-- Manual category override and reset-to-AI behavior in the reporting flow.
-- Five-language complaint preview generation and session caching.
-- Anonymous or disclosed citizen identity in generated complaints.
-- SOAP-style report analysis, severity assessment, and 48-hour action plan.
-- S3-first evidence storage with local file fallback and 15-day TTL metadata.
-- Anti-hallucination checks before official email dispatch.
-- Citizen report history and public community report map.
-- Authority dashboard with status counts, filters, map, analytics, and citizen hub views.
-- Resend email dispatch and status-change notifications to citizens.
-- Local and integration-oriented Python verification scripts.
+### Authority Features
+- Department-specific login and role-aware access control
+- Authority approval gating before dashboard access is granted
+- KPI dashboard cards for total, pending, in-progress, and resolved reports
+- Sort, filter, and priority views for active civic reports
+- Detailed report views with evidence, location, department, and status management
+- Status transitions such as pending, in-progress, and resolved
+- Department-based analytics and map views for operational oversight
+- Citizen hub view for communication and response tracking
+- Email notifications when report status changes
 
-The project is a working development-stage system. Some dashboard analytics, sample credentials, and UI fallback records are intentionally representative/demo data and should be replaced with production data sources before deployment.
+### AI and Automation
+- Multimodal classification using local CLIP/PyTorch image analysis where the model is available
+- Keyword and rule-based fallback heuristics when local or external inference is unavailable
+- Keyword-based text classification and confidence scoring
+- Coordinate-to-jurisdiction mapping for supported Maharashtra areas, plus browser-side reverse geocoding for map context
+- Automatic department routing based on issue category
+- Complaint generation using AI with template fallback when external services are unavailable
+- Severity and urgency analysis for each report
+- Anti-hallucination validation before formal dispatch to departments
 
-## Features
+### Storage and Communication
+- S3-first evidence storage with a local upload fallback
+- Presigned image URLs for public access when cloud storage is configured
+- Official email dispatch with category, jurisdiction, severity, and complaint details
+- Resend integration for email notifications and delivery tracking
+- Optional Google authentication and phone OTP login
+- PostgreSQL-backed persistence for report and auth data
 
-### Citizen experience
-
-- Public landing page with product overview, supported categories, FAQ, and entry points for citizens and officers.
-- Citizen sign-in through Google OAuth, phone OTP, or email/password.
-- Optional account registration from the shared authentication modal.
-- One-tap report action from the citizen dashboard.
-- Capture evidence through `getUserMedia`, switch between front and rear cameras, or upload an image.
-- Optional description, GPS coordinates, identity disclosure choice, and language selection.
-- AI classification of:
-    - Road and pothole damage
-    - Waste and garbage
-    - Water leakage
-    - Street light and electrical wire issues
-    - Food and sanitation issues
-    - Forest and wildlife issues
-- Classification confidence and per-domain model results are returned by the API.
-- Low-confidence results can be reviewed and manually corrected by the citizen.
-- Formal complaint preview in English, Hindi, Marathi, Gujarati, or Tamil.
-- All five language previews are requested in parallel with `Promise.all` and cached in `sessionStorage`.
-- Preview cache is cleared after submission, closing the modal, replacing the image, or changing the report context.
-- Anonymous reporting by default, with an explicit disclosed-identity option.
-- Personal report history with category, department, status, evidence image, city, timestamp, and Google Maps link.
-- Public community map with status-colored report markers and evidence popups.
-- Notifications and profile modal entry points.
-
-### Authority experience
-
-- Department-specific officer login.
-- Authority accounts are blocked until approved.
-- Protected authority dashboard routes enforce both role and approval state.
-- KPI cards for total, pending, in-progress, and resolved reports.
-- Recent, assigned, and priority report views.
-- Report detail selection with evidence, category, department, location, and status controls.
-- Status transitions are persisted through the backend.
-- Interactive department map with report pins.
-- Analytics view with resolution efficiency, response SLA, satisfaction, and category distribution presentation.
-- Citizens Hub view for active reporter presentation.
-- Refresh and time-range controls in the dashboard shell.
-- Citizen notification email is triggered when an authority changes a report status.
-
-### AI and report processing
-
-- Local `openai/clip-vit-base-patch32` model loading through Transformers and PyTorch.
-- Model weights are cached under `backend/models_cache` after first download.
-- Rule-based visual fallback analyzes color, saturation, asphalt, water, vegetation, waste, and electrical-hazard signals when model inference is unavailable.
-- Text keyword matching contributes to multimodal classification when a description is provided.
-- Six domain evaluators produce confidence values and the highest-confidence evaluator wins.
-- Reverse-geocoding fallback maps supported coordinates to city, taluka, district, and state values.
-- SOAP output contains Subjective, Objective, Assessment, and Plan sections.
-- Severity is derived from the category and includes a target action plan and 48-hour SLA.
-- Authority routing supports road transport, municipal corporation, nagar panchayat, gram panchayat, forest, and food/drug destinations.
-- Complaint generation uses NVIDIA Nemotron when `NVIDIA_API_KEY` is configured and falls back to deterministic multilingual templates.
-- Complaint content is kept under the intended concise formal-letter format.
-
-### Storage and email
-
-- Base64 evidence images are decoded and stored in S3 when AWS credentials are configured.
-- Local `backend/uploads` storage is used when S3 is unavailable.
-- S3 images are exposed through 24-hour presigned URLs when credentials are available.
-- Local evidence receives a 15-day expiration timestamp and cleanup worker path.
-- Official emails include category, jurisdiction, severity, evidence URL, complaint letter, and SLA request.
-- Resend delivery status and provider ID are persisted on the report.
-- `TEST_EMAIL_OVERRIDE` supports safe development routing for Resend domain restrictions.
-- Status updates can notify the original citizen by stored email, user lookup, or configured test override.
-
-## Architecture
-
-### Runtime topology
-
-```text
-Browser
-    |
-    +--> React/Vite frontend :3000
-                    |
-                    +--> Express auth service :4000 --> PostgreSQL
-                    |
-                    +--> FastAPI core API :5000 --> PostgreSQL
-                                                                            |
-                                                                            +--> Local CLIP / PyTorch
-                                                                            +--> S3 or local uploads
-                                                                            +--> NVIDIA Nemotron (optional)
-                                                                            +--> Resend (optional)
-```
-
-### Request lifecycle: report submission
-
-1. The citizen captures/uploads an image and the frontend obtains GPS coordinates when available.
-2. `POST /api/reports/classify` combines image inference, visual heuristics, and text keywords.
-3. The citizen confirms or overrides the category and selects identity/language settings.
-4. The frontend calls `POST /api/reports/preview` for complaint generation. All five language previews are generated and cached in parallel.
-5. `POST /api/reports/submit` stores the image, classifies or accepts the selected category, creates the SOAP transcript, and resolves the authority.
-6. The report generator creates a formal letter using NVIDIA Nemotron or a local template fallback.
-7. The email subsystem drafts an officer email and runs the anti-hallucination critic against the SOAP data.
-8. Resend dispatch is attempted and its status is stored.
-9. A PostgreSQL `reports` record is created with evidence, location, routing, status, SOAP data, complaint text, critic verdict, email audit fields, and TTL metadata.
-10. The frontend refreshes the citizen feed and public map after the report event.
-
-### Request lifecycle: authority status update
-
-1. An approved authority requests `GET /api/reports/authority` with a JWT bearer token.
-2. The API filters the feed by the officer department.
-3. The officer submits a new status to `POST /api/reports/{report_id}/status`.
-4. The report status is persisted.
-5. If the status changed, the service resolves the citizen email and sends a status notification through Resend.
-
-## Technology Stack
+## Tech Stack
 
 ### Frontend
+- React
+- Vite
+- Tailwind CSS
+- React Router
+- Leaflet and React Leaflet
+- Framer Motion
+- Lucide React
+- Google OAuth integration via @react-oauth/google
 
-- React 18.2
-- Vite 5
-- React Router 7
-- Tailwind CSS 3, PostCSS, Autoprefixer
-- Leaflet and React Leaflet for maps
-- Framer Motion for motion/UI transitions
-- Lucide React for icons
-- Google OAuth React SDK
-- Browser APIs: camera, geolocation, `localStorage`, and `sessionStorage`
-
-### Core backend
-
-- Python 3
-- FastAPI and Uvicorn
-- Pydantic 2
-- SQLAlchemy 2
-- PostgreSQL through `psycopg`
-- PyTorch and Torchvision
-- Hugging Face Transformers and CLIP
-- Pillow and NumPy
-- Boto3 for AWS S3
-- Resend Python SDK
-- PyJWT and python-dotenv
-
-### Authentication service
-
+### Authentication Service
 - Node.js
-- Express 4
-- Better Auth-compatible PostgreSQL schema/runtime integration
-- `pg` PostgreSQL client
-- JSON Web Tokens with `jsonwebtoken`
-- Google token verification with `google-auth-library`
-- Node `crypto.scrypt` for credential hashing and verification
+- Express.js
+- Better Auth
+- PostgreSQL
+- JWT
+- Google Auth Library
 - CORS and dotenv
 
-### External services and infrastructure
+### Backend / API
+- Python
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- Pydantic
+- Uvicorn
+- JWT-based auth enforcement
 
-- PostgreSQL or Supabase PostgreSQL
-- AWS S3, optional
-- Resend, optional for email dispatch
-- NVIDIA API, optional for Nemotron complaint generation
-- Twilio or compatible SMS provider, optional for phone OTP delivery
-- OpenStreetMap tiles through Leaflet
+### AI / ML
+- PyTorch
+- Transformers
+- Local OpenAI CLIP model support
+- Pillow and NumPy for image processing
+- Optional NVIDIA-hosted language-model assistance through an OpenAI-compatible client
+
+### Cloud and Messaging
+- AWS S3 for evidence storage
+- Resend for email notifications
+- Optional Twilio-compatible SMS flow for phone OTP login
+- PostgreSQL / Supabase-backed database services
+
+## System Architecture
+
+```text
+Browser / citizen app
+    |
+    +--> React frontend (Vite)
+            |
+            +--> Auth service (Express + Better Auth)
+            |       |
+            |       +--> PostgreSQL
+            |
+            +--> FastAPI backend
+                    |
+                    +--> PostgreSQL
+                    |
+                    +--> AI inference (CLIP + heuristics)
+                    |
+                    +--> S3 / local file storage
+                    |
+                    +--> Email and notification integrations
+```
+
+## How CivicSnap Works
+
+1. A citizen opens the app and signs in using email/password, Google, or phone OTP.
+2. The user captures or uploads proof of a civic issue and adds a description and location.
+3. The backend classifies the issue using multimodal AI and rule-based heuristics.
+4. The system suggests the correct department and allows manual override if needed.
+5. The complaint preview is generated in the preferred language and can be reviewed before submission.
+6. The report is stored in PostgreSQL with evidence metadata, severity, and department routing.
+7. The authority dashboard receives the issue, reviews the evidence, and updates the status.
+8. Citizens can track the progress and view their report history from the dashboard.
+9. Email notifications and status updates keep stakeholders informed throughout the lifecycle.
+
+## Project Workflow
+
+### Report Submission Lifecycle
+- Citizen submits issue with image, description, and geolocation
+- AI identifies the category and confidence score
+- System determines the responsible government department
+- Formal complaint draft is generated
+- Evidence is stored in cloud or local storage
+- Authority reviews and updates report status
+- Citizen receives updates and sees the resolution progress
+
+## Current Implementation and Feature Status
+
+CivicSnap is a development-stage application. The following describes the current code, not a production-readiness guarantee:
+
+| Capability | Current behavior |
+|---|---|
+| Report submission | FastAPI accepts report details, coordinates, optional evidence, and identity-disclosure preference. Reports are persisted in PostgreSQL. |
+| Classification | A local CLIP model can classify images into civic categories; text keywords and rule-based logic provide fallback and supporting signals. |
+| Complaint generation | The backend prepares structured SOAP notes and formal complaint text, with configured external language-model assistance where available. |
+| Severity and urgency | Severity analysis and urgency fields exist; AI severity and priority behavior are controlled by backend feature flags. |
+| Routing and notification | Reports are mapped to a responsible department/authority and email is drafted, checked, and dispatched through the configured email integration. |
+| Map | Leaflet renders geolocated reports on OpenStreetMap tiles. The community-map API and associated interactions are feature-flagged. |
+| Community support | The data model and API include report clusters, votes, comments, and audit records. Interactions require the community feature to be enabled and a report to have a cluster. |
+| Duplicate detection | Nearby, category-compatible reports are compared by distance, time, and description similarity. Suggestions are logged for authority review; suggestions do not automatically merge or cluster reports. |
+| Priority | A versioned score and explainable breakdown are implemented for clusters. The score uses community votes, severity, and age; external engagement currently contributes zero. |
+| External social reports | Tables and a design are present for external reports and engagement, but an external X ingestion/matching worker is not implemented. |
+| Geographic precision | Coordinates are stored as numeric latitude/longitude, not PostGIS geometry. The backend community-radius filter uses a bounding box; duplicate detection additionally applies Haversine distance. |
+
+The community map can be enabled with `FEATURE_COMMUNITY_MAP=true` in the backend environment and `VITE_FEATURE_COMMUNITY_MAP=true` in the frontend build environment. Priority and AI-severity paths are separately controlled by `FEATURE_PRIORITY_SCORING` and `FEATURE_AI_SEVERITY`. Check the deployment environment before assuming these features are enabled.
+
+### Duplicate detection details
+
+After report creation, a FastAPI background task checks for potential matches. It narrows candidates using an approximate coordinate bounding box and report time, then checks normalized categories and exact distance with the Haversine formula. The score is composed of 50% location proximity, 30% category agreement, and 20% `difflib.SequenceMatcher` description similarity. Defaults are a 50-meter radius, a 0.85 confidence threshold, and a 168-hour time window; these can be overridden with `DEDUP_RADIUS_METERS`, `DEDUP_CONFIDENCE_THRESHOLD`, and `DEDUP_TIME_WINDOW_HOURS`. Older resolved reports are excluded after the configured resolved grace period.
+
+Results are saved as audit-log suggestions and exposed to authorized authorities through `GET /api/reports/dedup-suggestions`. A result labeled `auto_merge_candidate` is only a high-confidence suggestion: current shadow-mode behavior leaves the report's `cluster_id` unchanged.
+
+### Geospatial behavior
+
+The browser requests location permission and sends coordinates with a report. A report can still use fallback coordinates if location is unavailable, so users should verify the pin before submission. `CommunityMap` uses Leaflet / React Leaflet and OpenStreetMap tiles; the location helper calls Nominatim reverse geocoding for a readable map location. Separately, the backend currently uses approximate coordinate-boundary rules to derive jurisdiction metadata for supported locations. These mechanisms support map display and routing, but are not a GIS boundary service or a PostGIS spatial database.
+
+## Proposed Community Priority and External-Evidence Solution
+
+The community-report design is documented in [docs/priority-based-community-reports.md](docs/priority-based-community-reports.md). It extends the existing report workflow rather than creating a second reporting system:
+
+1. Preserve each citizen submission, while associating likely duplicates with a canonical community issue after validation and review.
+2. Let authenticated citizens support an issue with one vote per citizen and add comments intended for authorities.
+3. Expose safe summary fields and aggregate support publicly; restrict comments, identities, merge history, and detailed evidence to authorized authorities.
+4. Calculate and persist a versioned priority score with its component breakdown so authorities can understand how it was produced.
+5. If officially permitted X API access is available, run external-post discovery and matching asynchronously, validate matches, and expose verified evidence only to authorities.
+6. Roll out conservatively: deduplication in shadow mode first, then authority review, then community interactions and calibrated priority scoring. External ingestion remains a future integration and must comply with provider terms, retention, deletion, and rate-limit requirements.
+
+The current priority service weights CivicSnap support at 50%, external support at 20%, severity at 20%, and report age at 10%; external support is currently zero because ingestion is not implemented. Default vote tiers and severity floors are demo configuration, not validated municipal service-level targets. The design document describes a fuller future matching and X-ingestion solution; those proposed capabilities should not be confused with shipped behavior.
 
 ## Repository Structure
 
 ```text
 DTPLM_CP/
-├── frontend/
-│   ├── src/
-│   │   ├── components/       # Auth, reporting, map, notification, profile, and UI components
-│   │   ├── context/          # AuthContext and persisted client session
-│   │   ├── pages/            # Landing, login, citizen, authority, and approval pages
-│   │   ├── utils/            # Browser location helpers
-│   │   ├── App.jsx           # Routes and ProtectedRoute rules
-│   │   └── index.css         # Global styles and Tailwind layer
-│   ├── package.json
-│   ├── vite.config.js
-│   └── Dockerfile
-├── auth-service/
-│   ├── index.js              # Express server and auth endpoints
-│   ├── auth.js               # PostgreSQL pool and JWT helpers
-│   ├── db_schema.txt         # Auth schema notes
-│   └── package.json
-├── backend/
-│   ├── main.py               # FastAPI app and report endpoints
-│   ├── auth.py               # JWT dependencies and role guards
-│   ├── database.py           # SQLAlchemy engine and sessions
-│   ├── models.py             # Report persistence model
-│   ├── services/
-│   │   ├── classification_service.py
-│   │   ├── multimodal_service.py
-│   │   ├── report_generator_service.py
-│   │   ├── email_service.py
-│   │   └── storage_service.py
-│   ├── test_*.py              # Classification, model, API, and email checks
-│   ├── requirements.txt
-│   ├── uploads/               # Local evidence fallback
-│   └── static/                # Static assets and image fallback paths
-├── scripts/
-│   ├── run_system.bat        # Starts all three local services
-│   └── start.bat             # Additional Windows helper
+├── frontend/                     # React/Vite web application
+│   └── src/
+│       ├── components/            # Report form, map, and dashboard components
+│       ├── context/               # Authentication context
+│       └── pages/                 # Citizen and authority views
+├── auth-service/                  # Express authentication service
+├── backend/                       # FastAPI API, models, and service modules
+│   ├── services/                  # Classification, storage, email, priority, deduplication
+│   ├── test_*.py                  # Backend tests
+│   └── requirements.txt
+├── docs/                          # Feature design documents
+├── scripts/                       # Windows launcher scripts
+├── supabase/migrations/           # PostgreSQL schema migrations
 ├── CP-High-Level-Design-Updated.png
 └── README.md
 ```
 
-## Ports and URLs
-
-| Service | Development URL | Default port |
-| --- | --- | ---: |
-| Frontend | http://localhost:3000 | 3000 |
-| Auth service | http://localhost:4000 | 4000 |
-| FastAPI backend | http://localhost:5000 | 5000 |
-| FastAPI Swagger UI | http://localhost:5000/docs | 5000 |
-| PostgreSQL | configured by connection URL | 5432 commonly |
-
-## Configuration
-
-The backend reads `DB_URL`, not `DATABASE_URL`.
-
-### `backend/.env`
-
-```env
-DB_URL=postgresql://postgres:postgres@localhost:5432/civicsnap
-JWT_SECRET=replace_with_a_shared_secret
-FRONTEND_URL=http://localhost:3000
-RESEND_API_KEY=re_your_resend_api_key
-RESEND_FROM_EMAIL=CivicSnap Dispatch <onboarding@resend.dev>
-NVIDIA_API_KEY=optional_nvidia_api_key
-AWS_STORAGE_BUCKET_NAME=optional_bucket_name
-AWS_REGION=ap-south-1
-AWS_ACCESS_KEY_ID=optional_access_key
-AWS_SECRET_ACCESS_KEY=optional_secret_key
-TEST_EMAIL_OVERRIDE=optional_test_recipient@example.com
-```
-
-### `auth-service/.env`
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/civicsnap
-JWT_SECRET=the_same_secret_used_by_the_backend
-AUTH_SERVICE_PORT=4000
-FRONTEND_URL=http://localhost:3000
-GOOGLE_CLIENT_ID=optional_google_client_id
-SMS_PROVIDER_SID=optional_twilio_account_sid
-SMS_PROVIDER_AUTH_TOKEN=optional_twilio_auth_token
-SMS_PROVIDER_FROM_NUMBER=optional_twilio_sender_number
-```
-
-### `frontend/.env`
-
-```env
-VITE_BACKEND_URL=http://localhost:5000
-VITE_AUTH_SERVICE_URL=http://localhost:4000
-VITE_GOOGLE_CLIENT_ID=optional_google_client_id
-```
-
-Do not commit real secrets. The authority credentials shown in the UI are development seed credentials and must be replaced or removed for a production deployment.
-
 ## Local Setup
 
 ### Prerequisites
+- Node.js 18+
+- Python 3.10+
+- PostgreSQL or Supabase PostgreSQL instance
+- Optional provider credentials for Google OAuth, AWS S3, Resend, NVIDIA, Hugging Face, and SMS delivery
 
-- Node.js and npm
-- Python 3.10 or newer recommended
-- PostgreSQL or a Supabase PostgreSQL database
-- Optional: AWS, Resend, NVIDIA, Google OAuth, and SMS provider credentials
+### Configure environment
+
+Create service-local environment files for development, but do not commit them. The following are variable names only; provide your own values in your local environment:
+
+| Service | Variable names | Purpose |
+|---|---|---|
+| Backend | `DB_URL`, `JWT_SECRET`, `FRONTEND_URL` | PostgreSQL connection, token verification, and allowed frontend origin |
+| Backend | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_STORAGE_BUCKET_NAME`, `AWS_REGION` | Optional S3 image storage; local uploads are used when S3 is not configured |
+| Backend | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Optional email delivery |
+| Backend | `NVIDIA_API_KEY`, `HUGGINGFACE_API_KEY` | Optional external language-model or inference integrations |
+| Backend | `FEATURE_COMMUNITY_MAP`, `FEATURE_PRIORITY_SCORING`, `FEATURE_AI_SEVERITY` | Enable selected backend feature paths |
+| Backend | `DEDUP_RADIUS_METERS`, `DEDUP_CONFIDENCE_THRESHOLD`, `DEDUP_TIME_WINDOW_HOURS`, `DEDUP_RESOLVED_GRACE_HOURS` | Tune shadow duplicate matching |
+| Backend | `PRIORITY_SUPPORT_LOG_CAP`, `PRIORITY_TIER_LOW`, `PRIORITY_TIER_MEDIUM`, `PRIORITY_TIER_HIGH`, `PRIORITY_TIER_HIGHEST` | Tune priority-score normalization and demo vote tiers |
+| Auth service | `DATABASE_URL` or `DB_URL`, `JWT_SECRET`, `FRONTEND_URL`, `AUTH_SERVICE_PORT` | Auth database, token signing, CORS origin, and listen port |
+| Auth service | `GOOGLE_CLIENT_ID` | Google sign-in integration |
+| Auth service | `SMS_PROVIDER_SID`, `SMS_PROVIDER_AUTH_TOKEN`, `SMS_PROVIDER_FROM_NUMBER` (or corresponding `TWILIO_*` names) | Optional Twilio-compatible OTP delivery |
+| Frontend | `VITE_BACKEND_URL`, `VITE_AUTH_SERVICE_URL`, `VITE_GOOGLE_CLIENT_ID`, `VITE_FEATURE_COMMUNITY_MAP` | API endpoints, Google sign-in, and community-map UI flag |
+
+`VITE_*` variables are embedded into the browser bundle and must never contain secrets. Backend and auth secrets must remain server-side. The auth service has a development OTP fallback; do not use it as production SMS verification.
 
 ### Install dependencies
 
-```powershell
+```bash
 cd auth-service
 npm install
 
-cd ..\frontend
+cd ../frontend
 npm install
 
-cd ..\backend
+cd ../backend
 python -m venv .venv
+# Windows PowerShell:
 .\.venv\Scripts\Activate.ps1
+# macOS/Linux:
+# source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Start services individually
+Before first startup, configure PostgreSQL and apply the required schema. Review and apply the SQL migrations in `supabase/migrations/` using the Supabase CLI or SQL editor as appropriate for your environment. Keep migration credentials private.
 
-```powershell
-# Terminal 1
+### Run the services
+
+Open three terminals from the repository root:
+
+```bash
+# Terminal 1: authentication service
 cd auth-service
-npm start
+node index.js
 
-# Terminal 2
+# Terminal 2: API backend
 cd backend
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 5000
 
-# Terminal 3
+# Terminal 3: frontend
 cd frontend
 npm run dev
 ```
 
-The backend module is `main:app` when the working directory is `backend`.
+The frontend's Vite default is typically `http://localhost:5173`; the backend serves on `http://localhost:5000` and FastAPI's interactive API documentation is at `http://localhost:5000/docs`. The auth service defaults to port `4000`. Configure the frontend's `VITE_*` API URLs to match your local or deployed services. The repository also includes `scripts/run_system.bat` for Windows, which opens service terminals.
 
-### Start all services on Windows
+## API Overview
 
-```powershell
-.\scripts\run_system.bat
-```
+The principal FastAPI routes are:
 
-The launcher opens separate windows for the auth service, backend, and frontend.
+| Method | Route | Purpose / access |
+|---|---|---|
+| `GET` | `/health` or `/api/health` | Backend health check |
+| `POST` | `/api/reports/classify` | Classify issue evidence and description |
+| `POST` | `/api/reports/preview` | Preview generated complaint/report content |
+| `POST` | `/api/reports/submit` | Create and route a report |
+| `GET` | `/api/reports/citizen` | Current citizen's reports |
+| `GET` | `/api/reports/public` | Public reports feed used by map/live views |
+| `GET` | `/api/reports/authority` | Role- and department-aware authority feed |
+| `POST` | `/api/reports/{report_id}/status` | Authority status update |
+| `GET` | `/api/community/reports` | Feature-flagged community map feed; optional category, status, and radius filters |
+| `GET` | `/api/community/reports/{cluster_id}` | Community issue detail |
+| `POST` | `/api/community/reports/{cluster_id}/upvote` | Authenticated citizen community interaction |
+| `POST` | `/api/community/reports/{cluster_id}/comments` | Authenticated citizen comment submission |
+| `GET` | `/api/reports/dedup-suggestions` | Authority-only shadow duplicate suggestions |
 
-## API Reference
-
-### Core backend
-
-| Method | Endpoint | Purpose | Access |
-| --- | --- | --- | --- |
-| `GET` | `/` | Backend service status | Public |
-| `GET` | `/health` or `/api/health` | Database and service health | Public |
-| `GET` | `/api/me` | Current authenticated JWT payload | Authenticated |
-| `POST` | `/api/reports/classify` | Image/text classification and routing suggestion | Public |
-| `POST` | `/api/reports/preview` | Generate a multilingual complaint preview | Optional JWT |
-| `POST` | `/api/reports/submit` | Store, analyze, route, audit, and email a report | Optional JWT |
-| `GET` | `/api/reports/citizen` | Authenticated citizen report history | Optional JWT |
-| `GET` | `/api/reports/public` or `/api/reports/all` | Public map/feed reports | Public |
-| `GET` | `/api/reports/authority` | Department-filtered authority feed | Approved authority |
-| `POST` | `/api/reports/{report_id}/status` | Update status and notify citizen | Approved authority |
-| `GET` | `/api/reports/s3-image/{report_id}` | Resolve an accessible image URL | Public |
-| `GET` | `/api/reports/{report_id}/image` | Alias for image URL resolution | Public |
-| `GET` | `/api/reports/stream-image/{report_id}` | Stream or proxy report image bytes | Public |
-| `GET` | `/api/reports/image-stream/{report_id}` | Alias for image streaming | Public |
-
-### Authentication service
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Auth database health |
-| `POST` | `/api/auth/phone/send-otp` | Generate and send/store a phone OTP |
-| `POST` | `/api/auth/phone/verify-otp` | Verify OTP, upsert user, and issue JWT |
-| `POST` | `/api/auth/sign-up/email` | Register an email/password account |
-| `POST` | `/api/auth/sign-in/email` | Authenticate email/password account |
-| `POST` | `/api/auth/google/signin` | Verify Google ID token and issue JWT |
-| `GET` | `/api/auth/me` | Verify JWT and return current user |
-| `POST` | `/api/auth/approve-authority` | Development/admin approval helper |
+See FastAPI's `/docs` page for request/response schemas and current access-control requirements. Backend role checks—not client-side UI hiding—are the authorization boundary.
 
 ## Data Model
 
-The core `reports` table stores:
+The principal persisted entities include:
 
-- UUID report identity, optional citizen ID, and citizen email.
-- Evidence image URL, category, description, latitude, longitude, and status.
-- Department, city, taluka, district, and state routing metadata.
-- SOAP transcript, severity, and generated complaint report.
-- `ttl_expires_at` for evidence retention handling.
-- Email draft, critic verdict, delivery status, provider email ID, and sent timestamp.
-- Vote count for community engagement support.
+- `reports`: original citizen report, coordinates, category, description, status, jurisdiction, evidence URL, severity, and email-delivery metadata.
+- `report_clusters` and `report_cluster_members`: canonical community issue and report membership; current new submissions are not automatically assigned by the shadow deduplication flow.
+- `votes` and `comments`: citizen support and community discussion associated with clusters.
+- `audit_log`: auditable events, including duplicate suggestions and community actions.
+- `external_reports`, `external_report_links`, and `external_engagement_snapshots`: schema support for future external evidence ingestion; no current X ingestion worker populates these as an integration.
 
-The auth database uses Better Auth-compatible `user`, `account`, and `verification` records with role, department, approval, email, and phone verification fields.
+The backend uses SQLAlchemy models and PostgreSQL UUID, JSON/JSONB, and relational constraints. Report coordinates are `FLOAT` columns with a composite B-tree index, not PostGIS geometry.
 
-## Tests and Verification Scripts
+## Tests
 
-The repository contains focused scripts for model behavior, API checks, multimodal classification, email status behavior, and offline operation:
+Backend tests use `pytest`. From the `backend` directory, install the requirements and run:
 
-```powershell
-python backend/test_offline_model.py
-python backend/test_multimodal_classify.py
-python backend/test_classify.py
-python backend/test_hf_api.py
-python backend/test_status_email_notification.py
-python backend/test_email_signin.py
+```bash
+pytest
 ```
 
-Some checks require a configured database, running services, model cache, or external provider credentials. Provider-dependent tests should be run with test overrides and never with production recipients.
+The database-backed duplicate-detection integration test is skipped unless `RUN_DEDUP_INTEGRATION=1` is set and requires a configured test database. Unit tests for matching logic can run without that integration setting.
 
-## Known Development Limitations
+Frontend tests use Node's built-in test runner. From the `frontend` directory:
 
-- Phone OTP is stored in memory as well as the verification table and exposes the generated OTP in the response for developer testing; this must be removed before production.
-- The authority approval endpoint is a development helper and is not protected by an administrator authorization layer.
-- The backend has no migration framework; startup creates tables and applies a small set of additive `ALTER TABLE`  operations.
-- Local image cleanup is implemented for expired local records; S3 object lifecycle policies should be configured separately for cloud retention.
-- If external AI/email/storage integrations are not configured, local/template/fallback behavior is used.
-- Some dashboard values and sample citizen records are presentation fallbacks rather than calculated production metrics.
-- The frontend currently expects `VITE_AUTH_SERVICE_URL`; older environment files using `VITE_AUTH_URL` will not configure the auth client.
-- Production hardening still requires rate limiting, admin authorization, secret management, structured logging, observability, API tests, and deployment configuration.
+```bash
+npm test
+npm run build
+```
 
-## Development History / Updates Completed
+The frontend `npm test` script currently covers the test files listed in `frontend/package.json`; it is not a guarantee that every UI flow has automated coverage.
 
-The implementation has progressed through these major updates:
+## Future Implementation Roadmap
 
-1. Created the three-service CivicSnap foundation: React/Vite frontend, Express authentication service, and FastAPI backend.
-2. Added PostgreSQL persistence for users, authentication records, and civic reports.
-3. Added JWT authentication and frontend protected routes for citizen and authority roles.
-4. Added citizen registration/login, authority login, Google OAuth, phone OTP, and authority approval state handling.
-5. Added camera capture, image upload, camera switching, geolocation, and report submission UI.
-6. Added six-category multimodal classification with local CLIP, visual fallback analysis, keyword matching, confidence scoring, and department routing.
-7. Added manual classification correction and AI-result reset behavior.
-8. Added SOAP transcript generation, severity assessment, location hierarchy, and municipal action plan generation.
-9. Added multilingual formal complaint generation in five languages with parallel frontend preview requests and client-side caching.
-10. Added S3 storage, local upload fallback, presigned URL support, image streaming, and 15-day TTL cleanup behavior.
-11. Added official email drafting, critic verification, Resend dispatch, email audit persistence, and test-recipient override support.
-12. Added citizen report history, public reports feed, community map markers, image popups, and Google Maps links.
-13. Added authority department feeds, report status lifecycle, dashboard metrics, priority/assignment views, map, analytics, and citizens hub.
-14. Added automatic citizen email notifications after authority status changes.
-15. Added focused test scripts for offline inference, multimodal classification, email sign-in, status notifications, and supporting API behavior.
-16. Updated this README to match the current file structure, environment variable names, routes, architecture, setup commands, implemented features, and known limitations.
+### Short-Term Goals
+- Improve AI classification accuracy with larger labeled civic datasets
+- Add stronger moderation and spam detection for public reports
+- Improve dashboard analytics and visualizations for departments
+- Strengthen role-based security and audit-ready workflows
+- Add better mobile UX and offline-capable reporting
+
+### Medium-Term Goals
+- Introduce admin analytics for city-level issue trends
+- Add multilingual voice-to-text reporting and accessibility improvements
+- Expand public map insights with heatmaps and cluster analytics
+- Enhance notification flows across SMS, email, and push channels
+- Improve evidence retention and lifecycle policies for uploaded media
+
+### Long-Term Goals
+- Expand to regional and municipal government integrations
+- Add live incident tracking and escalation workflows
+- Support multi-city and multi-department deployments
+- Integrate with government ERPs, ticketing systems, and GIS infrastructure
+- Build a mobile-first citizen experience with native app support
+- Add predictive analytics for recurring civic issues and infrastructure planning
+
+## Contribution Notes
+
+This project is a working development-stage civic technology platform. Before production use, rotate any credentials that have been exposed, remove secrets from repository history where applicable, use managed secret storage, replace demo authority data and routing addresses, strengthen OTP/authentication controls, validate jurisdiction and AI outputs, and complete privacy, security, retention, accessibility, and operational reviews. Never copy credential values into documentation, source control, issue trackers, or client-side `VITE_*` variables.
 
 ## License
 
-No license file is currently present in the repository. Add a license before distributing CivicSnap publicly.
+This project is currently intended for internal or demonstration use unless a separate license is added by the repository owner.

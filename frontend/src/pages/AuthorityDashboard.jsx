@@ -347,7 +347,7 @@ export default function AuthorityDashboard() {
                   : 'bg-pista-100 text-slate-700 hover:bg-pista-200'
               }`}
             >
-              AI Urgency
+              Urgent Reports
             </button>
             <PriorityScoreTab
               active={activeTab === 'priority-score'}
@@ -695,7 +695,7 @@ export default function AuthorityDashboard() {
                       selectedReport.ai_severity_confidence
                     )
                       ? CATEGORY_FALLBACK_LABEL
-                      : 'AI Severity Assessment'}
+                      : 'Severity Assessment'}
                   </span>
                   {selectedReport.severity_level != null && (
                     <p className="text-xs font-bold text-slate-800">Severity: {selectedReport.severity_level}</p>
@@ -721,7 +721,7 @@ export default function AuthorityDashboard() {
                   <div className="flex items-center justify-between gap-3">
                     <span
                       className="text-[11px] font-black text-emerald-950 uppercase"
-                      title="Priority class reflects community support, with a minimum level for severe AI-flagged issues."
+                      title="Priority reflects community support, with a minimum level for reports marked severe."
                     >
                       Priority Score
                     </span>

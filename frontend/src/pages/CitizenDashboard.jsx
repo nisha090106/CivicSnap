@@ -46,9 +46,24 @@ function formatReportDate(isoString) {
   }
 }
 
+function matchesReportCategory(report, category) {
+  if (category === 'All') return true;
+
+  const reportCategory = (report.category || '').toLowerCase();
+  const categoryTerms = {
+    Water: ['water'],
+    Garbage: ['garbage', 'waste'],
+    Roads: ['road', 'pothole'],
+    Electric: ['electric', 'street light', 'wire']
+  };
+
+  return categoryTerms[category].some((term) => reportCategory.includes(term));
+}
+
 export default function CitizenDashboard() {
   const { user, token, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('feed');
+  const [activeReportCategory, setActiveReportCategory] = useState('All');
   const [myReports, setMyReports] = useState([]);
   const [publicReports, setPublicReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
@@ -187,7 +202,7 @@ export default function CitizenDashboard() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between pb-36 md:pb-20 font-sans selection:bg-pista-300 overflow-y-auto w-full">
+    <div className="min-h-screen bg-pista-200 text-slate-900 flex flex-col justify-between pb-36 md:pb-20 font-sans selection:bg-pista-300 w-full">
 
       {/* 1. TOP HEADER NAVIGATION BAR — DARK BOTTLE GREEN (#072818) */}
       <header className="sticky top-0 z-[100] bg-[#072818] border-b border-bottle-800 px-4 md:px-8 py-3 flex items-center justify-between shadow-md text-white">
@@ -254,7 +269,7 @@ export default function CitizenDashboard() {
             <div className="space-y-3 text-center md:text-left max-w-xl">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-bottle-900 text-pista-100 font-extrabold rounded-full text-xs border border-bottle-800 shadow-xs">
                 <Sparkles className="w-3.5 h-3.5 text-pista-300" />
-                1-Tap AI Reporting
+                Quick Issue Reporting
               </span>
               <h2 className="text-2xl md:text-4xl font-black text-bottle-900 tracking-tight leading-tight">
                 See a Pothole or Trash? <br />
@@ -263,7 +278,7 @@ export default function CitizenDashboard() {
                 </span>
               </h2>
               <p className="text-slate-800 text-xs md:text-sm leading-relaxed font-semibold">
-                Take a photo of any community problem. CivicSnap automatically detects the issue and routes it directly to your municipal authority.
+                Add a photo, choose the issue category, and send it to your municipal authority.
               </p>
             </div>
 
@@ -449,10 +464,12 @@ export default function CitizenDashboard() {
 
                   {/* Category Pills Selector */}
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-black">
-                    {['All', 'Water', 'Garbage', 'Roads', 'Electricity', 'Drains', 'Parks', 'Others'].map((cat, i) => (
+                    {['All', 'Water', 'Garbage', 'Roads', 'Electric'].map((cat) => (
                       <button
                         key={cat}
-                        className={`px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition ${i === 0
+                        onClick={() => setActiveReportCategory(cat)}
+                        aria-pressed={activeReportCategory === cat}
+                        className={`px-2.5 py-1 rounded-full whitespace-nowrap cursor-pointer transition ${activeReportCategory === cat
                           ? 'bg-[#072818] text-white shadow-2xs'
                           : 'bg-pista-100 text-slate-700 hover:bg-pista-200 border border-pista-300'
                           }`}
@@ -497,7 +514,7 @@ export default function CitizenDashboard() {
                         status: 'In Progress',
                         image_url: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop&q=80'
                       }
-                    ]).map((item, idx) => (
+                    ]).filter((item) => matchesReportCategory(item, activeReportCategory)).map((item, idx) => (
                       <div
                         key={idx}
                         onClick={() => openCommunityReport(item)}

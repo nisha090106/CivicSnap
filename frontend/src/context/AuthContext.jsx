@@ -37,38 +37,6 @@ export function AuthProvider({ children }) {
     localStorage.setItem('civicsnap_user', JSON.stringify(userData));
   };
 
-  const sendOtp = async (phoneNumber) => {
-    try {
-      const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        console.error("sendOtp API Error Response:", data);
-        if (data.success === undefined) data.success = false;
-      }
-      return data;
-    } catch (err) {
-      console.error("sendOtp Error:", err);
-      return { success: false, error: 'Connection error', details: err.message };
-    }
-  };
-
-  const verifyOtp = async ({ phoneNumber, code, role, department, name }) => {
-    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/phone/verify-otp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber, code, role, department, name })
-    });
-    const data = await res.json();
-    if (data.success && data.token) {
-      saveAuthSession(data.token, data.user);
-    }
-    return data;
-  };
-
   const googleSignIn = async ({ idToken, role, department }) => {
     const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/google/signin`, {
       method: 'POST',
@@ -140,8 +108,6 @@ export function AuthProvider({ children }) {
       token,
       user,
       loading,
-      sendOtp,
-      verifyOtp,
       emailSignIn,
       googleSignIn,
       emailSignUp,

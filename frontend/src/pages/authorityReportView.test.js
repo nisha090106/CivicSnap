@@ -8,10 +8,10 @@ import {
   isRealAiSeverity
 } from '../utils/severityPresentation.js';
 
-test('category fallback is clearly labeled and never treated as AI urgency', () => {
+test('category fallback is clearly labeled and never treated as system-assessed urgency', () => {
   assert.equal(
     CATEGORY_FALLBACK_LABEL,
-    'Estimated from category (AI analysis unavailable)'
+    'Estimated from issue category'
   );
   assert.equal(isCategoryFallbackSeverity('category_fallback', 0), true);
   assert.equal(isRealAiSeverity('category_fallback', 0), false);
@@ -40,7 +40,7 @@ test('category fallback is clearly labeled and never treated as AI urgency', () 
   );
 });
 
-test('legacy nonzero-confidence AI severity remains eligible for AI urgency', () => {
+test('legacy nonzero-confidence severity remains eligible for urgency', () => {
   assert.equal(isRealAiSeverity(null, 0.75), true);
   assert.equal(isCategoryFallbackSeverity(null, 0), true);
 });

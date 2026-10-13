@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
-import { X, Mail, Lock, Phone, Sparkles, Building2, UserCheck, ShieldCheck, Camera } from 'lucide-react';
+import { X, Mail, Lock, Building2, UserCheck, ShieldCheck, Camera } from 'lucide-react';
 import { AUTHORITY_DEPARTMENTS } from '../constants/authorityDepartments';
 
 const DEPARTMENT_CREDENTIALS = {
@@ -18,11 +18,10 @@ const DEPARTMENT_CREDENTIALS = {
 const DEPARTMENTS = AUTHORITY_DEPARTMENTS;
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login', initialRole = 'citizen' }) {
-  const { sendOtp, verifyOtp, googleSignIn, emailSignIn, emailSignUp } = useAuth();
+  const { googleSignIn, emailSignIn, emailSignUp } = useAuth();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState(initialRole === 'authority' ? 'login' : initialTab);
-  const [authMethod, setAuthMethod] = useState('email');
   const [role, setRole] = useState(initialRole);
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
 
@@ -40,11 +39,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
       }
     }
   };
-
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpStep, setOtpStep] = useState('send');
-  const [otpCode, setOtpCode] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -100,62 +94,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
     } catch (err) {
       console.error("Email auth exception:", err);
       setError(`Connection error: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendOtp = async (e) => {
-    e.preventDefault();
-    if (!phoneNumber) return setError('Please enter your phone number');
-
-    setError('');
-    setLoading(true);
-
-    try {
-      const res = await sendOtp(phoneNumber);
-      if (res.success) {
-        setGeneratedOtp(res.otpCode);
-        setOtpStep('verify');
-      } else {
-        const errorMsg = res.error || 'Failed to send OTP';
-        const detailsText = res.details ? `: ${res.details}` : '';
-        setError(`${errorMsg}${detailsText}`);
-      }
-    } catch (err) {
-      console.error("sendOtp exception:", err);
-      setError(`Connection error: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    if (!otpCode) return setError('Please enter 6-digit OTP code');
-
-    setError('');
-    setLoading(true);
-
-    try {
-      const res = await verifyOtp({
-        phoneNumber,
-        code: otpCode,
-        role,
-        department: role === 'authority' ? department : null,
-        name
-      });
-
-      if (res.success) {
-        redirectAfterAuth(res.user);
-      } else {
-        const errorMsg = res.error || 'Invalid OTP code';
-        const detailsText = res.details ? `: ${res.details}` : '';
-        setError(`${errorMsg}${detailsText}`);
-      }
-    } catch (err) {
-      console.error("verifyOtp exception:", err);
-      setError(`OTP Verification failed: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -229,7 +167,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
               onClick={() => {
                 setRole('authority');
                 setMode('login');
-                setAuthMethod('email');
                 const creds = DEPARTMENT_CREDENTIALS[department] || DEPARTMENT_CREDENTIALS[DEPARTMENTS[0]];
                 if (creds) {
                   setEmail(creds.email);
@@ -264,25 +201,6 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
           )}
 
           {role === 'citizen' && (
-            <div className="flex border-b border-pista-300 gap-4 text-xs font-black text-bottle-800">
-              <button
-                type="button"
-                onClick={() => setAuthMethod('email')}
-                className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'email' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
-              >
-                Email & Password
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMethod('phone')}
-                className={`pb-2 border-b-2 transition cursor-pointer ${authMethod === 'phone' ? 'border-bottle-800 text-bottle-900' : 'border-transparent text-slate-600'}`}
-              >
-                Phone OTP
-              </button>
-            </div>
-          )}
-
-          {role === 'citizen' && (
             <>
               <div className="flex justify-center w-full min-h-[44px]">
                 <GoogleLogin
@@ -304,8 +222,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
             </>
           )}
 
-          {authMethod === 'email' && (
-            <form onSubmit={handleEmailAuth} className="space-y-4">
+          <form onSubmit={handleEmailAuth} className="space-y-4">
               {mode === 'signup' && (
                 <div>
                   <label className="block text-xs font-black text-bottle-800 mb-1">Full Name</label>
@@ -357,68 +274,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login', initi
               >
                 {loading ? 'Authenticating...' : mode === 'login' ? 'Sign In to Account' : 'Create Account'}
               </button>
-            </form>
-          )}
-
-          {authMethod === 'phone' && (
-            <div className="space-y-4">
-              {otpStep === 'send' ? (
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-black text-bottle-800 mb-1">Phone Number</label>
-                    <input
-                      type="tel"
-                      placeholder="+91 98765 43210"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-semibold focus:outline-none focus:border-bottle-800"
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
-                  >
-                    {loading ? 'Sending OTP...' : 'Send Verification OTP'}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  {generatedOtp && (
-                    <div className="p-3 bg-pista-300 border border-pista-400 rounded-xl text-xs text-bottle-800 text-center font-bold flex items-center justify-center gap-2">
-                      <Sparkles className="w-4 h-4 text-bottle-800" />
-                      <span>Dev OTP Code: <strong className="font-mono text-bottle-900 text-sm font-black">{generatedOtp}</strong></span>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-black text-bottle-800 mb-1">
-                      Enter 6-Digit Code sent to <span className="text-bottle-900 font-black">{phoneNumber}</span>
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      placeholder="123456"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      className="w-full px-4 py-3 bg-white border border-pista-400 rounded-xl text-center font-mono text-lg tracking-widest text-slate-900 font-bold focus:outline-none focus:border-bottle-800"
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-4 bg-bottle-800 hover:bg-bottle-600 text-white font-black text-sm rounded-md transition shadow-lg shadow-bottle-950/30 disabled:opacity-50 cursor-pointer border border-bottle-700"
-                  >
-                    {loading ? 'Verifying...' : 'Verify & Continue'}
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
+          </form>
 
           {role === 'citizen' && (
             <div className="text-center pt-2 text-xs text-slate-700 font-semibold">

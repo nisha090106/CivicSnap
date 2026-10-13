@@ -3,18 +3,12 @@ import { Link } from 'react-router-dom';
 import AuthModal from '../components/AuthModal';
 import Navbar from '../components/Navbar';
 import IntroLoader from '../components/IntroLoader';
+import LandingClassificationCard from '../components/LandingClassificationCard';
+import BackgroundBubbles from '../components/BackgroundBubbles';
 import {
   Camera,
-  Sparkles,
-  MapPin,
-  CheckCircle2,
   ArrowRight,
   ShieldCheck,
-  Layers,
-  Bot,
-  FileCheck2,
-  Building2,
-  PhoneCall,
   Milestone,
   Trash2,
   Droplet,
@@ -58,21 +52,23 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-pista-200 text-slate-900 font-sans selection:bg-pista-300">
+    <div className="relative isolate min-h-screen bg-pista-200 text-slate-900 font-sans selection:bg-pista-300">
+      <BackgroundBubbles />
+      <div className="relative z-10">
       <IntroLoader duration={2000} />
 
       <Navbar />
 
       {/* 2. HERO SECTION */}
-      <section style={{ minHeight: heroMinHeight }} className="relative px-4 sm:px-8 pt-12 pb-20 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <section style={{ minHeight: heroMinHeight }} className="relative overflow-hidden px-4 sm:px-8 pt-12 pb-20 max-w-6xl mx-auto">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
 
           {/* Left Column: Headline & CTA */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
 
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-bottle-900 text-pista-100 rounded-full border border-bottle-700 text-xs font-extrabold shadow-xs">
-              <Sparkles className="w-4 h-4 text-pista-300" />
-              <span>AI-Powered Municipal Action</span>
+              <Camera className="w-4 h-4 text-pista-300" />
+              <span>A simpler way to report local issues</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-bottle-900 tracking-tight leading-[1.06] lg:leading-[1.04]">
@@ -81,10 +77,6 @@ export default function LandingPage() {
                 Fix Your City.
               </span>
             </h1>
-
-            <p className="text-slate-800 text-base sm:text-lg lg:text-xl max-w-2xl mx-auto lg:mx-0 leading-relaxed lg:leading-8 font-semibold">
-              CivicSnap automatically detects potholes, accumulated garbage, broken streetlights, and water leakage from a photo, routing complaints directly to official municipal departments.
-            </p>
 
             {/* Action CTAs — Dark Green Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
@@ -106,67 +98,11 @@ export default function LandingPage() {
               </button>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="pt-6 grid grid-cols-3 gap-4 border-t border-pista-400/80 text-left max-w-lg mx-auto lg:mx-0">
-              <div>
-                <span className="text-2xl lg:text-3xl font-black text-bottle-800">1-Tap</span>
-                <p className="text-xs lg:text-sm text-slate-700 font-bold">Photo Reporting</p>
-              </div>
-              <div>
-                <span className="text-2xl lg:text-3xl font-black text-bottle-800">98%</span>
-                <p className="text-xs lg:text-sm text-slate-700 font-bold">AI Categorization</p>
-              </div>
-              <div>
-                <span className="text-2xl lg:text-3xl font-black text-bottle-800">7</span>
-                <p className="text-xs lg:text-sm text-slate-700 font-bold">Civic Departments</p>
-              </div>
-            </div>
-
           </div>
 
           {/* Right Column: Visual Feature Showcase Card */}
           <div className="lg:col-span-5">
-            <div className="bg-pista-100 rounded-md p-6 sm:p-8 border border-pista-400 shadow-xl space-y-6 relative overflow-hidden">
-
-              <div className="flex items-center justify-between border-b border-pista-300 pb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-bottle-800"></div>
-                  <span className="text-xs lg:text-sm font-black text-bottle-800 uppercase tracking-wider">Live AI Classification</span>
-                </div>
-                <span className="text-[10px] px-2.5 py-1 bg-bottle-900 text-pista-100 font-mono font-extrabold rounded-lg border border-bottle-800">
-                  GPS Active
-                </span>
-              </div>
-
-              {/* Photo Preview Simulation */}
-              <div className="relative rounded-md bg-pista-200 border border-pista-400 h-52 overflow-hidden flex flex-col items-center justify-center p-6 text-center space-y-3">
-                <div className="w-16 h-16 rounded-full bg-bottle-800 text-white flex items-center justify-center shadow-lg">
-                  <Camera className="w-8 h-8" />
-                </div>
-                <div>
-                  <span className="text-xs font-black text-bottle-800 block">Pothole Detected & Categorized</span>
-                  <span className="text-[11px] text-bottle-600 font-extrabold">Auto-routed to: Road & Transport Department</span>
-                </div>
-              </div>
-
-              {/* Workflow Status Pills */}
-              <div className="space-y-2 text-xs">
-                <div className="p-3 bg-white border border-pista-300 rounded-xl flex items-center justify-between shadow-xs">
-                  <span className="text-slate-800 font-bold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-bottle-800" /> Image Verification
-                  </span>
-                  <span className="font-black text-bottle-800">Passed</span>
-                </div>
-
-                <div className="p-3 bg-white border border-pista-300 rounded-xl flex items-center justify-between shadow-xs">
-                  <span className="text-slate-800 font-bold flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-bottle-800" /> Department Assignment
-                  </span>
-                  <span className="font-black text-bottle-800">Road & Transport</span>
-                </div>
-              </div>
-
-            </div>
+            <LandingClassificationCard />
           </div>
 
         </div>
@@ -200,9 +136,9 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-md bg-bottle-800 text-white flex items-center justify-center font-black text-xl shadow-md">
                 2
               </div>
-              <h3 className="font-black text-lg text-bottle-800">AI Categorizes</h3>
+              <h3 className="font-black text-lg text-bottle-800">Add Issue Details</h3>
               <p className="text-slate-700 text-xs leading-relaxed font-semibold">
-                Computer vision models automatically analyze the image, classify the severity, and pin GPS coordinates.
+                Add a short description, choose a category, and confirm the location.
               </p>
             </div>
 
@@ -237,32 +173,27 @@ export default function LandingPage() {
       <section id="features" className="py-16 px-4 sm:px-8 max-w-6xl mx-auto space-y-10">
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-black text-bottle-900">Supported Issue Categories</h2>
-          <p className="text-slate-800 text-xs sm:text-sm font-semibold">Automatic classification across all major municipal departments.</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
             <Milestone className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Roads & Potholes</h4>
-            <p className="text-[11px] text-slate-700 font-bold">Road & Transport Dept</p>
           </div>
 
           <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
             <Trash2 className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Garbage & Waste</h4>
-            <p className="text-[11px] text-slate-700 font-bold">Waste Management Dept</p>
           </div>
 
           <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
             <Droplet className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Water Leakage</h4>
-            <p className="text-[11px] text-slate-700 font-bold">Water Supply Authority</p>
           </div>
 
           <div className="bg-pista-100 p-6 rounded-md border border-pista-400 text-center space-y-2 shadow-xs">
             <Lightbulb className="w-10 h-10 text-bottle-800 mx-auto" />
             <h4 className="font-black text-sm text-bottle-800">Street Lights</h4>
-            <p className="text-[11px] text-slate-700 font-bold">Electricity & Wiring</p>
           </div>
         </div>
       </section>
@@ -274,7 +205,7 @@ export default function LandingPage() {
             question: 'What is CivicSnap and how does it work?',
             answer: (
               <>
-                CivicSnap is an AI-powered civic issue reporting app — snap a photo of a problem, and our computer vision models automatically detect and classify the issue (pothole, garbage, streetlight, etc.). Complaints are routed to the correct municipal department and tracked until resolution.
+                CivicSnap helps residents send civic issue reports to the right municipal department. Add a photo, choose an issue category, and follow the report until it is resolved.
               </>
             )
           },
@@ -282,7 +213,7 @@ export default function LandingPage() {
             question: 'How do I report a civic issue (pothole, streetlight, garbage, etc.)?',
             answer: (
               <>
-                Open the app and take a clear photo of the issue (or upload one). Provide an optional description and confirm the location. Submit and the system will automatically assign it to the relevant department — no paperwork required.
+                Take a clear photo or upload one, add an optional description, choose the issue category, and confirm the location. Submit the report to the relevant department — no paperwork required.
               </>
             )
           },
@@ -352,6 +283,7 @@ export default function LandingPage() {
         initialRole={authRole}
       />
 
+      </div>
     </div>
   );
 }
