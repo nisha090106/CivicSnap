@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    CheckConstraint,
     JSON,
     String,
     Text,
@@ -42,6 +43,10 @@ class Report(Base):
     description = Column(Text, nullable=True)
     department = Column(String(100), nullable=True)
     status = Column(String(50), nullable=True, default="pending", server_default="pending")
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    assigned_worker_name = Column(String(160), nullable=True)
+    assigned_worker_contact = Column(String(80), nullable=True)
+    resolution_photo_url = Column(Text, nullable=True)
     created_at = Column(
         DateTime(timezone=True),
         nullable=True,
@@ -83,6 +88,39 @@ class Report(Base):
     email_status = Column(String(50), nullable=True, default="pending")
     email_id = Column(String(255), nullable=True)
     email_sent_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ReportUpdate(Base):
+    __tablename__ = "report_updates"
+    __table_args__ = (
+        Index("ix_report_updates_report_created", "report_id", "created_at"),
+        CheckConstraint(
+            "percentage IS NULL OR (percentage >= 0 AND percentage <= 100)",
+            name="ck_report_updates_percentage_range",
+        ),
+    )
+
+    report_update_id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sql_text("gen_random_uuid()"),
+    )
+    report_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("reports.report_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    update_type = Column(String(30), nullable=False, default="progress")
+    percentage = Column(Integer, nullable=True)
+    photo_url = Column(Text, nullable=False)
+    actor_id = Column(String(100), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=sql_text("now()"),
+    )
 
 
 class ReportCluster(Base):

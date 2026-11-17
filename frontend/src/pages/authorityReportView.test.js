@@ -44,3 +44,16 @@ test('legacy nonzero-confidence severity remains eligible for urgency', () => {
   assert.equal(isRealAiSeverity(null, 0.75), true);
   assert.equal(isCategoryFallbackSeverity(null, 0), true);
 });
+
+test('authority status sorting follows the acknowledgment workflow', () => {
+  const reports = ['Resolved', 'In Progress', 'Acknowledged', 'Pending'].map((status) => ({
+    id: status,
+    status
+  }));
+
+  assert.deepEqual(
+    selectAuthorityReports(reports, 'recent', 'all', 'status', 'Municipal Corporation')
+      .map((report) => report.status),
+    ['Pending', 'Acknowledged', 'In Progress', 'Resolved']
+  );
+});

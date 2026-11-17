@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 import AuthModal from '../components/AuthModal';
 import Navbar from '../components/Navbar';
 import IntroLoader from '../components/IntroLoader';
@@ -17,6 +19,9 @@ import {
 import FAQAccordion from '../components/FAQAccordion';
 
 export default function LandingPage() {
+  const { loading: authLoading } = useAuth();
+  const prefersReducedMotion = useReducedMotion();
+  const [introFinished, setIntroFinished] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authTab, setAuthTab] = useState('login');
   const [authRole, setAuthRole] = useState('citizen');
@@ -52,11 +57,21 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="relative isolate min-h-screen bg-pista-200 text-slate-900 font-sans selection:bg-pista-300">
+    <>
+      <IntroLoader
+        duration={2000}
+        ready={!authLoading}
+        onComplete={() => setIntroFinished(true)}
+      />
+      {introFinished && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.35, ease: 'easeOut' }}
+        className="relative isolate min-h-screen bg-pista-200 text-slate-900 font-sans selection:bg-pista-300"
+      >
       <BackgroundBubbles />
       <div className="relative z-10">
-      <IntroLoader duration={2000} />
-
       <Navbar />
 
       {/* 2. HERO SECTION */}
@@ -284,6 +299,8 @@ export default function LandingPage() {
       />
 
       </div>
-    </div>
+      </motion.div>
+      )}
+    </>
   );
 }

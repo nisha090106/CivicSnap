@@ -35,7 +35,7 @@ export function selectAuthorityReports(
       return (reportB.priority_score ?? -1) - (reportA.priority_score ?? -1);
     }
     if (reportSort === 'status') {
-      const statusOrder = { pending: 0, 'in progress': 1, resolved: 2 };
+      const statusOrder = { pending: 0, acknowledged: 1, 'in progress': 2, resolved: 3 };
       return (statusOrder[(reportA.status || '').toLowerCase()] ?? 3)
         - (statusOrder[(reportB.status || '').toLowerCase()] ?? 3);
     }

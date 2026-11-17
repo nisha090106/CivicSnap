@@ -38,6 +38,15 @@ function getFullImageUrl(url, backendUrl) {
   return `${backendUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
+function readImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('The selected photo could not be read.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function formatReportDate(isoString) {
   if (!isoString) return 'Just now';
   try {
@@ -64,6 +73,17 @@ export default function AuthorityDashboard() {
   const [loading, setLoading] = useState(true);
   const [reportsError, setReportsError] = useState('');
   const [selectedReport, setSelectedReport] = useState(null);
+  const [acknowledgingReportId, setAcknowledgingReportId] = useState(null);
+  const [acknowledgmentError, setAcknowledgmentError] = useState('');
+  const [statusError, setStatusError] = useState('');
+  const [workerName, setWorkerName] = useState('');
+  const [workerContact, setWorkerContact] = useState('');
+  const [workerSaving, setWorkerSaving] = useState(false);
+  const [progressPhoto, setProgressPhoto] = useState(null);
+  const [progressPercentage, setProgressPercentage] = useState(0);
+  const [progressSaving, setProgressSaving] = useState(false);
+  const [resolutionPhoto, setResolutionPhoto] = useState(null);
+  const [statusSaving, setStatusSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('recent');
   const [reportSort, setReportSort] = useState('recent');
   const [priorityClassFilter, setPriorityClassFilter] = useState('all');
@@ -111,25 +131,147 @@ export default function AuthorityDashboard() {
     getSystemLocation().then((loc) => setCurrentCity(loc.city));
   }, [token]);
 
-  const updateStatus = async (reportId, newStatus) => {
+  const openReport = async (report) => {
+    setSelectedReport(report);
+    setAcknowledgmentError('');
+    setStatusError('');
+    setWorkerName(report.assigned_worker_name || '');
+    setWorkerContact(report.assigned_worker_contact || '');
+    setProgressPhoto(null);
+    setResolutionPhoto(null);
+    setProgressPercentage(report.progress_updates?.at(-1)?.percentage ?? 0);
+
+    if (report.acknowledged_at) return;
+
+    const reportId = report.id || report.report_id;
+    setAcknowledgingReportId(reportId);
     try {
+      const response = await fetch(`${BACKEND_URL}/api/reports/${reportId}/acknowledge`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || 'Unable to acknowledge this report.');
+      }
+
+      const acknowledgedReport = {
+        ...report,
+        status: data.status,
+        acknowledged_at: data.acknowledged_at
+      };
+      setReports((current) => current.map((item) => (
+        item.id === reportId ? acknowledgedReport : item
+      )));
+      setSelectedReport((current) => (
+        current?.id === reportId ? acknowledgedReport : current
+      ));
+    } catch (error) {
+      console.error('Error acknowledging report:', error);
+      setAcknowledgmentError(error.message || 'Unable to acknowledge this report.');
+    } finally {
+      setAcknowledgingReportId((current) => current === reportId ? null : current);
+    }
+  };
+
+  const updateReportInView = (reportId, updates) => {
+    setReports((current) => current.map((item) => (
+      item.id === reportId ? { ...item, ...updates } : item
+    )));
+    setSelectedReport((current) => (
+      current?.id === reportId ? { ...current, ...updates } : current
+    ));
+  };
+
+  const assignWorker = async (event) => {
+    event.preventDefault();
+    if (!selectedReport) return;
+    setStatusError('');
+    setWorkerSaving(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/reports/${selectedReport.id}/worker`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          worker_name: workerName,
+          worker_contact: workerContact
+        })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || 'Unable to assign this worker.');
+      }
+      updateReportInView(selectedReport.id, data);
+    } catch (error) {
+      setStatusError(error.message || 'Unable to assign this worker.');
+    } finally {
+      setWorkerSaving(false);
+    }
+  };
+
+  const addProgressUpdate = async (event) => {
+    event.preventDefault();
+    if (!selectedReport || !progressPhoto) return;
+    setStatusError('');
+    setProgressSaving(true);
+    try {
+      const imageData = await readImageFile(progressPhoto);
+      const response = await fetch(`${BACKEND_URL}/api/reports/${selectedReport.id}/progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ image_data: imageData, percentage: Number(progressPercentage) })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || 'Unable to save this progress update.');
+      }
+      updateReportInView(selectedReport.id, {
+        progress_updates: [...(selectedReport.progress_updates || []), data.update]
+      });
+      setProgressPhoto(null);
+      event.target.reset();
+    } catch (error) {
+      setStatusError(error.message || 'Unable to save this progress update.');
+    } finally {
+      setProgressSaving(false);
+    }
+  };
+
+  const updateStatus = async (reportId, newStatus) => {
+    setStatusError('');
+    setStatusSaving(true);
+    try {
+      const proofPhotoData = newStatus === 'Resolved' && resolutionPhoto
+        ? await readImageFile(resolutionPhoto)
+        : undefined;
       const res = await fetch(`${BACKEND_URL}/api/reports/${reportId}/status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, proof_photo_data: proofPhotoData })
       });
       const data = await res.json();
-      if (data.success) {
-        fetchDepartmentReports();
-        if (selectedReport?.id === reportId) {
-          setSelectedReport(prev => prev ? { ...prev, status: newStatus } : null);
-        }
+      if (!res.ok || !data.success) {
+        throw new Error(data.detail || 'Unable to update report status.');
       }
-    } catch (err) {
-      alert('Failed to update status');
+      fetchDepartmentReports();
+      updateReportInView(reportId, {
+        status: newStatus,
+        ...(data.resolution_photo_url ? { resolution_photo_url: data.resolution_photo_url } : {})
+      });
+      setResolutionPhoto(null);
+    } catch (error) {
+      setStatusError(error.message || 'Unable to update report status.');
+    } finally {
+      setStatusSaving(false);
     }
   };
 
@@ -559,12 +701,14 @@ export default function AuthorityDashboard() {
                   ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
                   : report.status === 'In Progress'
                   ? 'bg-amber-100 text-amber-900 border-amber-300'
+                  : report.status === 'Acknowledged'
+                  ? 'bg-blue-100 text-blue-900 border-blue-300'
                   : 'bg-slate-100 text-slate-800 border-slate-300';
 
               return (
                 <div
                   key={report.id}
-                  onClick={() => setSelectedReport(report)}
+                  onClick={() => openReport(report)}
                   className="p-4 bg-pista-50/60 hover:bg-pista-100 rounded-2xl border border-pista-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition cursor-pointer shadow-xs"
                 >
                   <div className="flex items-center gap-4">
@@ -624,7 +768,7 @@ export default function AuthorityDashboard() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedReport(report);
+                        openReport(report);
                       }}
                       className="px-3.5 py-1.5 bg-white hover:bg-pista-200 border border-pista-400 text-[#072818] text-xs font-black rounded-xl transition shadow-2xs cursor-pointer flex items-center gap-1"
                     >
@@ -666,7 +810,11 @@ export default function AuthorityDashboard() {
                 <p className="text-xs text-emerald-300 font-bold">Report #{selectedReport.id} &bull; {selectedReport.department}</p>
               </div>
               <button
-                onClick={() => setSelectedReport(null)}
+                onClick={() => {
+                  setSelectedReport(null);
+                  setAcknowledgmentError('');
+                  setStatusError('');
+                }}
                 className="w-8 h-8 rounded-full bg-bottle-800 text-white flex items-center justify-center hover:bg-bottle-700 transition cursor-pointer"
               >
                 ✕
@@ -674,6 +822,39 @@ export default function AuthorityDashboard() {
             </div>
 
             <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto text-xs font-semibold">
+              {acknowledgmentError && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">
+                  {acknowledgmentError}
+                </p>
+              )}
+              {acknowledgingReportId === selectedReport.id && (
+                <p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-bold text-blue-900">
+                  Recording that this report has been seen…
+                </p>
+              )}
+              {selectedReport.acknowledged_at && (
+                <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-bold text-blue-900">
+                  Acknowledged {formatReportDate(selectedReport.acknowledged_at)}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="rounded-full border border-pista-400 bg-pista-100 px-3 py-1 text-[11px] font-black text-[#072818]">
+                  Status: {selectedReport.status}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateStatus(selectedReport.id, 'In Progress')}
+                  disabled={!selectedReport.acknowledged_at || acknowledgingReportId === selectedReport.id || statusSaving || ['In Progress', 'Resolved'].includes(selectedReport.status)}
+                  className="rounded-lg bg-amber-100 px-3 py-1.5 text-[11px] font-black text-amber-900 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Set In Progress
+                </button>
+              </div>
+              {statusError && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">
+                  {statusError}
+                </p>
+              )}
               
               {/* Evidence Photo */}
               <div className="relative h-56 rounded-2xl overflow-hidden bg-slate-900 border border-pista-400 shadow-md">
@@ -686,6 +867,40 @@ export default function AuthorityDashboard() {
                   📍 {selectedReport.city_name || 'Mumbai'}
                 </span>
               </div>
+
+              {selectedReport.resolution_photo_url && (
+                <div className="space-y-2">
+                  <span className="text-[11px] font-black uppercase text-[#072818]">Resolution proof</span>
+                  <img
+                    src={getFullImageUrl(selectedReport.resolution_photo_url, BACKEND_URL)}
+                    alt="Photo showing the completed repair"
+                    className="h-56 w-full rounded-2xl border border-pista-400 object-cover"
+                  />
+                </div>
+              )}
+
+              {(selectedReport.progress_updates || []).length > 0 && (
+                <section className="space-y-2">
+                  <h4 className="text-[11px] font-black uppercase text-[#072818]">Work updates</h4>
+                  <div className="space-y-3">
+                    {[...selectedReport.progress_updates].reverse().map((update) => (
+                      <article key={update.id} className="flex items-center gap-3 rounded-xl border border-pista-300 bg-pista-50 p-3">
+                        <img
+                          src={getFullImageUrl(update.photo_url, BACKEND_URL)}
+                          alt={`Work progress at ${update.percentage}%`}
+                          className="h-16 w-20 rounded-lg object-cover"
+                        />
+                        <div>
+                          <p className="text-sm font-black text-[#072818]">{update.percentage}% complete</p>
+                          <time className="text-[11px] font-semibold text-slate-600">
+                            {formatReportDate(update.created_at)}
+                          </time>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {(selectedReport.ai_severity_confidence != null || selectedReport.ai_severity_reasoning != null) && (
                 <div className="p-4 bg-pista-50 rounded-2xl border border-pista-300 space-y-2">
@@ -745,24 +960,119 @@ export default function AuthorityDashboard() {
                 </div>
               )}
 
-              {/* Status Updater Buttons */}
-              <div className="p-4 bg-pista-50 rounded-2xl border border-pista-300 space-y-2">
-                <span className="text-[11px] font-black text-[#072818] uppercase block">Update Report Status (Dispatches email to citizen)</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => updateStatus(selectedReport.id, 'In Progress')}
-                    className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-xl transition cursor-pointer"
-                  >
-                    Set In Progress 🟡
-                  </button>
-                  <button
-                    onClick={() => updateStatus(selectedReport.id, 'Resolved')}
-                    className="flex-1 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white font-black rounded-xl transition cursor-pointer"
-                  >
-                    Mark Resolved 🟢
-                  </button>
+              <form onSubmit={assignWorker} className="rounded-2xl border border-pista-300 bg-pista-50 p-4 space-y-3">
+                <div>
+                  <h4 className="text-[11px] font-black uppercase text-[#072818]">Assign a worker</h4>
+                  <p className="mt-1 text-[11px] font-semibold text-slate-600">
+                    The citizen will see who is handling this report.
+                  </p>
                 </div>
-              </div>
+                {selectedReport.assigned_worker_name && (
+                  <p className="text-xs font-bold text-slate-800">
+                    Currently assigned to: {selectedReport.assigned_worker_name} · {selectedReport.assigned_worker_contact}
+                  </p>
+                )}
+                <input
+                  value={workerName}
+                  onChange={(event) => setWorkerName(event.target.value)}
+                  required
+                  maxLength={160}
+                  disabled={!selectedReport.acknowledged_at || selectedReport.status === 'Resolved'}
+                  placeholder="Worker name"
+                  aria-label="Worker name"
+                  className="w-full rounded-lg border border-pista-400 bg-white px-3 py-2 text-xs"
+                />
+                <input
+                  value={workerContact}
+                  onChange={(event) => setWorkerContact(event.target.value)}
+                  required
+                  maxLength={80}
+                  disabled={!selectedReport.acknowledged_at || selectedReport.status === 'Resolved'}
+                  placeholder="Contact number"
+                  aria-label="Worker contact number"
+                  className="w-full rounded-lg border border-pista-400 bg-white px-3 py-2 text-xs"
+                />
+                <button
+                  type="submit"
+                  disabled={!selectedReport.acknowledged_at || selectedReport.status === 'Resolved' || workerSaving}
+                  className="w-full rounded-xl bg-[#0C3D24] px-3 py-2.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {workerSaving ? 'Saving…' : 'Save worker assignment'}
+                </button>
+              </form>
+
+              {selectedReport.status === 'In Progress' && (
+                <form onSubmit={addProgressUpdate} className="rounded-2xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase text-blue-950">Share a progress update</h4>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-700">
+                      Add a recent photo and let the citizen know how the work is going.
+                    </p>
+                  </div>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-bold text-slate-700">Work completed: {progressPercentage}%</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={progressPercentage}
+                      onChange={(event) => setProgressPercentage(Number(event.target.value))}
+                      aria-label="Work completion percentage"
+                      className="w-full"
+                    />
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    required
+                    onChange={(event) => setProgressPhoto(event.target.files?.[0] || null)}
+                    aria-label="Progress photo"
+                    className="block w-full text-[11px]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!progressPhoto || progressSaving}
+                    className="w-full rounded-xl bg-blue-800 px-3 py-2.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {progressSaving ? 'Saving update…' : 'Add progress update'}
+                  </button>
+                </form>
+              )}
+
+              {selectedReport.status === 'In Progress' && (
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    updateStatus(selectedReport.id, 'Resolved');
+                  }}
+                  className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3"
+                >
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase text-emerald-950">Mark as Resolved</h4>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-700">
+                      Add a final photo of the completed work to resolve this report.
+                    </p>
+                  </div>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-bold text-slate-700">Final proof photo (required to resolve)</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      required
+                      onChange={(event) => setResolutionPhoto(event.target.files?.[0] || null)}
+                      aria-label="Final resolution proof photo"
+                      className="block w-full text-[11px]"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={!resolutionPhoto || statusSaving}
+                    className="w-full rounded-xl bg-emerald-800 px-3 py-2.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {statusSaving ? 'Submitting…' : 'Submit & Mark Resolved'}
+                  </button>
+                </form>
+              )}
 
               {/* Description */}
               {selectedReport.description && (

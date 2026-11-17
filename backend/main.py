@@ -4,9 +4,8 @@ import uuid
 import jwt
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, field_validator
-
 from fastapi import FastAPI, HTTPException, status, Depends, BackgroundTasks, Query, Request
+from pydantic import BaseModel, Field, field_validator
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
@@ -23,6 +22,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from services.storage_service import save_report_image, calculate_ttl_expiration, cleanup_expired_storage, get_presigned_image_url
+from services.supabase_storage import get_report_evidence_url, upload_report_evidence
 from services.multimodal_service import analyze_and_generate_soap_transcript
 from services.report_generator_service import generate_llm_complaint_report
 from services.email_service import draft_official_email, anti_hallucination_critic, dispatch_email_worker, send_status_update_notification_to_citizen
@@ -169,6 +169,10 @@ try:
         connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS email_id VARCHAR(255)"))
         connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS citizen_email VARCHAR(255)"))
         connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS ai_severity_source VARCHAR(50)"))
+        connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMPTZ"))
+        connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS assigned_worker_name VARCHAR(160)"))
+        connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS assigned_worker_contact VARCHAR(80)"))
+        connection.execute(text("ALTER TABLE reports ADD COLUMN IF NOT EXISTS resolution_photo_url TEXT"))
     print("Database tables initialized / verified successfully.")
 except Exception as e:
     print(f"Database initialization notice: {e}")
@@ -230,6 +234,25 @@ class ReportPreviewRequest(BaseModel):
 
 class StatusUpdateRequest(BaseModel):
     status: str
+    proof_photo_data: Optional[str] = None
+
+
+class WorkerAssignmentRequest(BaseModel):
+    worker_name: str = Field(min_length=1, max_length=160)
+    worker_contact: str = Field(min_length=1, max_length=80)
+
+    @field_validator("worker_name", "worker_contact")
+    @classmethod
+    def trim_required_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("This field cannot be blank")
+        return normalized
+
+
+class ProgressUpdateRequest(BaseModel):
+    image_data: str = Field(min_length=1)
+    percentage: int = Field(ge=0, le=100)
 
 
 class CommunityCommentRequest(BaseModel):
@@ -584,6 +607,32 @@ Please prioritize review and dispatch an appropriate response."""
             detail=f"Report submission failed: {str(err)}"
         )
 
+def _report_work_tracking_fields(report: models.Report, db: Session) -> dict:
+    updates = (
+        db.query(models.ReportUpdate)
+        .filter(
+            models.ReportUpdate.report_id == report.report_id,
+            models.ReportUpdate.update_type == "progress",
+        )
+        .order_by(models.ReportUpdate.created_at.asc())
+        .all()
+    )
+    return {
+        "assigned_worker_name": report.assigned_worker_name,
+        "assigned_worker_contact": report.assigned_worker_contact,
+        "resolution_photo_url": get_report_evidence_url(report.resolution_photo_url),
+        "progress_updates": [
+            {
+                "id": str(update.report_update_id),
+                "photo_url": get_report_evidence_url(update.photo_url),
+                "percentage": update.percentage,
+                "created_at": update.created_at.isoformat() if update.created_at else None,
+            }
+            for update in updates
+        ],
+    }
+
+
 # 2. CITIZEN REPORTS FEED: GET /api/reports/citizen (STRICT CITIZEN ISOLATION)
 @app.get("/api/reports/citizen")
 def get_citizen_reports(
@@ -622,6 +671,8 @@ def get_citizen_reports(
                     "department": r.department,
                     "description": r.description,
                     "status": r.status or "Pending",
+                    "acknowledged_at": r.acknowledged_at.isoformat() if r.acknowledged_at else None,
+                    **_report_work_tracking_fields(r, db),
                     "latitude": r.latitude,
                     "longitude": r.longitude,
                     "image_url": get_presigned_image_url(r.image_url),
@@ -635,6 +686,8 @@ def get_citizen_reports(
                 for r in reports
             ]
         }
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[Citizen Reports Error]: {e}")
         return {"role": "citizen", "count": 0, "reports": []}
@@ -656,6 +709,7 @@ def get_public_all_reports(db: Session = Depends(get_db)):
                     "department": r.department,
                     "description": r.description,
                     "status": r.status or "Pending",
+                    "acknowledged_at": r.acknowledged_at.isoformat() if r.acknowledged_at else None,
                     "latitude": r.latitude,
                     "longitude": r.longitude,
                     "image_url": get_presigned_image_url(r.image_url),
@@ -1164,6 +1218,8 @@ def get_authority_reports(
                     "department": r.department,
                     "description": r.description,
                     "status": r.status or "Pending",
+                    "acknowledged_at": r.acknowledged_at.isoformat() if r.acknowledged_at else None,
+                    **_report_work_tracking_fields(r, db),
                     "latitude": r.latitude,
                     "longitude": r.longitude,
                     "image_url": get_presigned_image_url(r.image_url),
@@ -1210,6 +1266,151 @@ def find_report_by_id(db: Session, report_id: str):
     except Exception:
         pass
     return db.query(models.Report).filter(cast(models.Report.report_id, String) == str(report_id)).first()
+
+
+@app.post("/api/reports/{report_id}/acknowledge")
+def acknowledge_report(
+    report_id: str,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_authority)
+):
+    department = user.get("department")
+    if not isinstance(department, str) or not department.strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Authority department is required",
+        )
+
+    try:
+        try:
+            report_uuid = uuid.UUID(report_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=404, detail="Report not found")
+
+        report = (
+            db.query(models.Report)
+            .filter(models.Report.report_id == report_uuid)
+            .with_for_update()
+            .first()
+        )
+        if report is None:
+            raise HTTPException(status_code=404, detail="Report not found")
+        if (report.department or "").strip().casefold() != department.strip().casefold():
+            raise HTTPException(status_code=403, detail="Report is not assigned to your department")
+
+        if report.acknowledged_at is None:
+            report.acknowledged_at = datetime.now(timezone.utc)
+            if (report.status or "pending").strip().casefold() == "pending":
+                report.status = "Acknowledged"
+            db.commit()
+            db.refresh(report)
+
+        return {
+            "success": True,
+            "report_id": str(report.report_id),
+            "status": report.status or "Pending",
+            "acknowledged_at": report.acknowledged_at.isoformat(),
+            "department": report.department,
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as error:
+        db.rollback()
+        print(f"[Report Acknowledgment Error]: {error}")
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to acknowledge report",
+        ) from error
+
+
+def _get_authority_report(report_id: str, db: Session, user: dict) -> models.Report:
+    report = find_report_by_id(db, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    department = (user.get("department") or "").strip()
+    if not department or (report.department or "").strip().casefold() != department.casefold():
+        raise HTTPException(status_code=403, detail="Report is not assigned to your department")
+    return report
+
+
+@app.post("/api/reports/{report_id}/worker")
+def assign_report_worker(
+    report_id: str,
+    req: WorkerAssignmentRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_authority),
+):
+    try:
+        report = _get_authority_report(report_id, db, user)
+        if report.acknowledged_at is None:
+            raise HTTPException(status_code=409, detail="Acknowledge the report before assigning a worker.")
+        if (report.status or "").strip().casefold() == "resolved":
+            raise HTTPException(status_code=409, detail="A resolved report cannot be reassigned.")
+
+        report.assigned_worker_name = req.worker_name
+        report.assigned_worker_contact = req.worker_contact
+        if (report.status or "pending").strip().casefold() != "in progress":
+            report.status = "In Progress"
+        db.commit()
+        db.refresh(report)
+        return {
+            "success": True,
+            "report_id": str(report.report_id),
+            "status": report.status,
+            "assigned_worker_name": report.assigned_worker_name,
+            "assigned_worker_contact": report.assigned_worker_contact,
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as error:
+        db.rollback()
+        print(f"[Worker Assignment Error]: {error}")
+        raise HTTPException(status_code=500, detail="Unable to assign this worker.") from error
+
+
+@app.post("/api/reports/{report_id}/progress")
+def add_report_progress(
+    report_id: str,
+    req: ProgressUpdateRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_authority),
+):
+    try:
+        report = _get_authority_report(report_id, db, user)
+        if (report.status or "").strip().casefold() != "in progress":
+            raise HTTPException(status_code=409, detail="Progress updates are available while work is in progress.")
+
+        photo_path = upload_report_evidence(req.image_data, str(report.report_id))
+        photo_url = get_report_evidence_url(photo_path)
+        update = models.ReportUpdate(
+            report_id=report.report_id,
+            update_type="progress",
+            percentage=req.percentage,
+            photo_url=photo_path,
+            actor_id=str(user.get("id") or user.get("sub") or ""),
+        )
+        db.add(update)
+        db.commit()
+        db.refresh(update)
+        return {
+            "success": True,
+            "update": {
+                "id": str(update.report_update_id),
+                "photo_url": photo_url,
+                "percentage": update.percentage,
+                "created_at": update.created_at.isoformat() if update.created_at else None,
+            },
+        }
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as error:
+        db.rollback()
+        print(f"[Report Progress Update Error]: {error}")
+        raise HTTPException(status_code=500, detail="Unable to save this progress update.") from error
+
 
 # 4. FETCH S3 REPORT IMAGE ACCESS: GET /api/reports/s3-image/{report_id}
 @app.get("/api/reports/s3-image/{report_id}")
@@ -1314,12 +1515,36 @@ def update_report_status(
     user: dict = Depends(require_authority)
 ):
     try:
-        report = db.query(models.Report).filter(models.Report.report_id == report_id).first()
-        if not report:
-            raise HTTPException(status_code=404, detail="Report not found")
+        report = _get_authority_report(report_id, db, user)
 
         old_status = report.status or "pending"
         new_status = req.status
+        if new_status not in {"In Progress", "Resolved"}:
+            raise HTTPException(status_code=400, detail="Choose In Progress or Resolved.")
+
+        if new_status == "In Progress" and report.acknowledged_at is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Acknowledge the report before setting it to In Progress",
+            )
+        if new_status == "Resolved" and old_status.strip().casefold() != "in progress":
+            raise HTTPException(
+                status_code=409,
+                detail="Set the report to In Progress before resolving it",
+            )
+        if new_status == "Resolved" and not req.proof_photo_data:
+            raise HTTPException(
+                status_code=400,
+                detail="Upload a final proof photo before resolving this report.",
+            )
+
+        resolution_photo_url = None
+        if new_status == "Resolved":
+            report.resolution_photo_url = upload_report_evidence(
+                req.proof_photo_data,
+                str(report.report_id),
+            )
+            resolution_photo_url = get_report_evidence_url(report.resolution_photo_url)
 
         report.status = new_status
         db.commit()
@@ -1367,9 +1592,13 @@ def update_report_status(
             "message": f"Report status updated from '{old_status}' to '{new_status}'",
             "report_id": str(report.report_id),
             "status": report.status,
+            "resolution_photo_url": resolution_photo_url,
             "citizen_email_notification": email_notification_result
         }
 
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

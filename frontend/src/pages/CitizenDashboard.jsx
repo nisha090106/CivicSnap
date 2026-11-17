@@ -72,6 +72,7 @@ export default function CitizenDashboard() {
   const [interactionError, setInteractionError] = useState('');
   const [interactionBusy, setInteractionBusy] = useState(false);
   const [currentCity, setCurrentCity] = useState('Detecting...');
+  const acknowledgedReports = myReports.filter((report) => report.acknowledged_at);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
@@ -197,8 +198,12 @@ export default function CitizenDashboard() {
     fetchReports();
     getSystemLocation().then((loc) => setCurrentCity(loc.city));
     const handleRefresh = () => fetchReports();
+    const refreshInterval = window.setInterval(fetchReports, 30000);
     window.addEventListener('civicsnap:reportSubmitted', handleRefresh);
-    return () => window.removeEventListener('civicsnap:reportSubmitted', handleRefresh);
+    return () => {
+      window.clearInterval(refreshInterval);
+      window.removeEventListener('civicsnap:reportSubmitted', handleRefresh);
+    };
   }, [token]);
 
   return (
@@ -237,7 +242,11 @@ export default function CitizenDashboard() {
             aria-label="View notifications"
           >
             <Bell className="w-4 h-4 text-white" />
-            <span className="w-2 h-2 bg-emerald-400 rounded-full absolute top-1 right-1"></span>
+            {acknowledgedReports.length > 0 && (
+              <span className="min-w-4 h-4 px-1 bg-emerald-400 text-bottle-950 text-[9px] font-black rounded-full absolute -top-1 -right-1 flex items-center justify-center">
+                {acknowledgedReports.length}
+              </span>
+            )}
           </button>
 
           {/* User Profile Button */}
@@ -365,11 +374,18 @@ export default function CitizenDashboard() {
                                 <Building2 className="w-3 h-3 text-bottle-800" /> {report.department || 'Municipal Corporation'}
                               </span>
                             </div>
+                            {report.acknowledged_at && (
+                              <p className="text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                Your report has been seen by {report.department || 'the department'}.
+                              </p>
+                            )}
 
                             <span className={`text-[10px] px-2.5 py-1 rounded-md font-extrabold shrink-0 ${report.status === 'Resolved'
                               ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                               : report.status === 'In Progress'
                                 ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                                : report.status === 'Acknowledged'
+                                  ? 'bg-sky-100 text-sky-900 border border-sky-300'
                                 : 'bg-amber-100 text-amber-900 border border-amber-300'
                               }`}>
                               {report.status || 'Pending'}
@@ -405,6 +421,46 @@ export default function CitizenDashboard() {
                               {report.description || 'Reported civic issue requiring municipal attention.'}
                             </p>
                           </div>
+
+                          {report.assigned_worker_name && (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                              <p className="text-xs font-black text-emerald-950">
+                                Assigned to: {report.assigned_worker_name} · {report.assigned_worker_contact}
+                              </p>
+                            </div>
+                          )}
+
+                          {(report.progress_updates || []).length > 0 && (
+                            <section className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-3">
+                              <h4 className="text-xs font-black text-blue-950">Work in progress</h4>
+                              {[...report.progress_updates].slice(-3).reverse().map((update) => (
+                                <article key={update.id} className="space-y-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-black text-blue-950">{update.percentage}% complete</span>
+                                    <time className="text-[10px] font-semibold text-slate-600">
+                                      {formatReportDate(update.created_at)}
+                                    </time>
+                                  </div>
+                                  <img
+                                    src={getFullImageUrl(update.photo_url, BACKEND_URL)}
+                                    alt={`Work update: ${update.percentage}% complete`}
+                                    className="h-36 w-full rounded-lg border border-blue-200 object-cover"
+                                  />
+                                </article>
+                              ))}
+                            </section>
+                          )}
+
+                          {report.status === 'Resolved' && report.resolution_photo_url && (
+                            <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                              <h4 className="text-xs font-black text-emerald-950">The work is complete</h4>
+                              <img
+                                src={getFullImageUrl(report.resolution_photo_url, BACKEND_URL)}
+                                alt="Photo showing the completed repair"
+                                className="h-36 w-full rounded-lg border border-emerald-200 object-cover"
+                              />
+                            </div>
+                          )}
                         </div>
 
                         {/* Card Footer: Timestamp & Google Maps Link */}
@@ -636,7 +692,11 @@ export default function CitizenDashboard() {
 
       {/* Interactive Modals */}
       <ReportIssueModal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} />
-      <NotificationsModal isOpen={isNotifModalOpen} onClose={() => setIsNotifModalOpen(false)} />
+      <NotificationsModal
+        isOpen={isNotifModalOpen}
+        onClose={() => setIsNotifModalOpen(false)}
+        reports={acknowledgedReports}
+      />
       <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
 
       {/* Detailed Report Inspection Modal */}

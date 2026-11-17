@@ -223,6 +223,7 @@ Create service-local environment files for development, but do not commit them. 
 |---|---|---|
 | Backend | `DB_URL`, `JWT_SECRET`, `FRONTEND_URL` | PostgreSQL connection, token verification, and allowed frontend origin |
 | Backend | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_STORAGE_BUCKET_NAME`, `AWS_REGION` | Optional S3 image storage; local uploads are used when S3 is not configured |
+| Backend | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, optional `SUPABASE_STORAGE_BUCKET` | Required for authority progress and resolution photos; create a Supabase Storage bucket named `report-images` (the default) |
 | Backend | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Optional email delivery |
 | Backend | `NVIDIA_API_KEY`, `HUGGINGFACE_API_KEY` | Optional external language-model or inference integrations |
 | Backend | `FEATURE_COMMUNITY_MAP`, `FEATURE_PRIORITY_SCORING`, `FEATURE_AI_SEVERITY` | Enable selected backend feature paths |
@@ -253,7 +254,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Before first startup, configure PostgreSQL and apply the required schema. Review and apply the SQL migrations in `supabase/migrations/` using the Supabase CLI or SQL editor as appropriate for your environment. Keep migration credentials private.
+Before first startup, configure PostgreSQL and apply the required schema. Review and apply the SQL migrations in `supabase/migrations/` using the Supabase CLI or SQL editor as appropriate for your environment. Create the configured photo bucket in Supabase Storage before authorities add progress or resolution photos. Keep migration and service-role credentials private.
 
 ### Run the services
 
