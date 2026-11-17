@@ -3,7 +3,7 @@ import { Building2, CheckCircle2, MapPin } from 'lucide-react';
 
 export default function LandingClassificationCard() {
   return (
-    <div className="bg-pista-100 rounded-2xl p-4 sm:p-5 border border-pista-400 shadow-xl space-y-4">
+    <div className="bg-pista-100 rounded-2xl p-4 sm:p-5 border-2 border-bottle-800 shadow-xl space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shadow-[0_0_0_3px_rgba(22,101,52,0.12)] shrink-0" />

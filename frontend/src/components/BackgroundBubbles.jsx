@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 const BUBBLE_COLORS = [
-  [143, 171, 111],
-  [157, 181, 126],
-  [173, 188, 135],
-  [132, 163, 112]
+  [126, 166, 112],
+  [140, 177, 123],
+  [153, 184, 130],
+  [119, 158, 104]
 ];
 
 export default function BackgroundBubbles({ variant = 'full' }) {
@@ -14,16 +14,23 @@ export default function BackgroundBubbles({ variant = 'full' }) {
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   );
 
-  const bubbles = useMemo(() => Array.from({ length: isMobile ? 6 : 14 }, (_, index) => {
+  const bubbles = useMemo(() => Array.from({ length: isMobile ? 10 : 24 }, (_, index) => {
     const color = BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)];
     const opacity = 0.08 + Math.random() * 0.12;
     const isOutlined = index % 5 === 0;
     const radii = Array.from({ length: 8 }, () => 42 + Math.random() * 16);
-    const verticalPosition = (index + Math.random() * 0.7) / (isMobile ? 6 : 14) * 100;
+    const bubbleCount = isMobile ? 10 : 24;
+    const verticalPosition = (index + Math.random() * 0.7) / bubbleCount * 100;
+    const sizeRange = [
+      [85, 135],
+      [60, 95],
+      [40, 65],
+      [25, 45]
+    ][index % 4];
 
     return {
       id: index,
-      size: 40 + Math.random() * 180,
+      size: sizeRange[0] + Math.random() * (sizeRange[1] - sizeRange[0]),
       borderRadius: `${radii.slice(0, 4).map((radius) => `${radius}%`).join(' ')} / ${radii.slice(4).map((radius) => `${radius}%`).join(' ')}`,
       left: Math.random() * 100,
       top: variant === 'bottom' ? 80 + Math.random() * 20 : verticalPosition,
@@ -52,7 +59,7 @@ export default function BackgroundBubbles({ variant = 'full' }) {
     return () => mediaQuery.removeEventListener('change', updateMobile);
   }, []);
 
-  const visibleBubbles = bubbles.slice(0, isMobile ? 6 : 14);
+  const visibleBubbles = bubbles;
   const containerStyle = variant === 'bottom'
     ? {
         maskImage: 'linear-gradient(to top, black 0%, black 15%, transparent 40%)',
@@ -75,7 +82,7 @@ export default function BackgroundBubbles({ variant = 'full' }) {
             right: blob.right,
             top: blob.top,
             bottom: blob.bottom,
-            background: 'radial-gradient(circle, rgba(143,171,111,0.2) 0%, rgba(183,199,150,0.1) 38%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(126,166,112,0.2) 0%, rgba(164,190,142,0.1) 38%, transparent 70%)',
             willChange: 'transform'
           }}
           animate={prefersReducedMotion
